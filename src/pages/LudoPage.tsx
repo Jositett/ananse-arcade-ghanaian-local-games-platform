@@ -27,12 +27,12 @@ export function LudoPage() {
     if (pos === -1) {
       // Base stacking: per-color rank by id asc
       const sameColorBaseTokens = tokens.filter(t => t.color === token.color && t.position === -1);
-      sameColorBaseTokens.sort((a, b) => a.id.localeCompare(b.id));
+      sameColorBaseTokens.sort((a, b) => a.id - b.id);
       return sameColorBaseTokens.findIndex(t => t.id === token.id);
     } else {
       // Path stacking: per-position global rank (color then id)
       const samePosTokens = tokens.filter(t => t.position === pos);
-      samePosTokens.sort((a, b) => a.color.localeCompare(b.color) || a.id.localeCompare(b.id));
+      samePosTokens.sort((a, b) => a.color.localeCompare(b.color) || (a.id - b.id));
       return samePosTokens.findIndex(t => t.id === token.id);
     }
   };
