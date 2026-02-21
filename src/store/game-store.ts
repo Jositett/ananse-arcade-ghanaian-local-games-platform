@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createInitialOware, sowSeeds, OwareState } from '@/lib/game-logic/oware-engine';
+import { createInitialOware, sowSeeds, OwareState, getValidOwareMoves } from '@/lib/game-logic/oware-engine';
 import { PlayerColor, Token, moveToken, getValidMoves } from '@/lib/game-logic/ludo-engine';
 import { getBestLudoMove, getBestOwareMove } from '@/lib/game-logic/ai-engine';
 import { LudoMove, GameEvent } from '@shared/types';
@@ -59,18 +59,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     consecutiveSixes: 0,
     showTripleSixWarning: false
   },
-  oware: createInitialOware(),
+  oware: { ...createInitialOware(), lastPitPlayed: undefined },
   setGame: (gameType, gameMode, roomId, playerIdx) => set({
     gameType, gameMode, roomId: roomId || null, localPlayerId: playerIdx ?? 0,
     winner: null, selectedTokenId: null, isAnimating: false, battleLog: [],
     ludo: { tokens: initialLudoTokens(), currentPlayer: 'red', diceRoll: null, isRolling: false, validMoves: [], consecutiveSixes: 0, showTripleSixWarning: false },
-    oware: createInitialOware()
+    oware: { ...createInitialOware(), lastPitPlayed: undefined }
   }),
   addLog: (type, player, message) => set(s => ({
     battleLog: [{ id: uuidv4(), type, player, message, timestamp: Date.now() }, ...s.battleLog].slice(0, 20)
   })),
   selectLudoToken: (tokenId: number) => set({ selectedTokenId: tokenId }),
-
   syncWithServer: async () => {
     const roomId = get().roomId;
     if (get().gameMode !== 'online' || !roomId || get().isAnimating) return;
@@ -78,9 +77,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       const res = await fetch(`/api/games/${roomId}`);
       const json = await res.json();
       if (json.success) {
-        set({ 
-          ludo: json.data.state.ludo, 
-          oware: json.data.state.oware, 
+        set({
+          ludo: json.data.state.ludo,
+          oware: json.data.state.oware,
           winner: json.data.state.winner,
           battleLog: json.data.state.battleLog || []
         });
@@ -142,16 +141,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().checkWinner();
     if (get().gameMode === 'online' && get().roomId) {
       const state = get();
-      await fetch(`/api/games/${get().roomId}/sync`, { 
-        method: 'POST', 
-        body: JSON.stringify({ state: { ludo: state.ludo, oware: state.oware, winner: state.winner, battleLog: state.battleLog } }) 
+      await fetch(`/api/games/${get().roomId}/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ state: { ludo: state.ludo, oware: state.oware, winner: state.winner, battleLog: state.battleLog } })
       });
     }
     get().checkCPUTurn();
   },
   playOwarePit: async (index, animated = true) => {
     const oware = get().oware;
-    if (get().winner || get().isAnimating || oware.pits[index] === 0) return;
+    const validMoves = getValidOwareMoves(oware);
+    if (get().winner || get().isAnimating || !validMoves.includes(index)) return;
     if (animated) {
       set({ isAnimating: true });
       let seeds = oware.pits[index];
@@ -169,18 +169,20 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       const finalState = sowSeeds(oware, index);
       const capturedDiff = finalState.captured[oware.currentPlayer] - oware.captured[oware.currentPlayer];
-      if (capturedDiff > 0) get().addLog('capture', `Player ${oware.currentPlayer + 1}`, `Captured ${capturedDiff} seeds!`);
-      set({ oware: finalState, isAnimating: false });
+      if (capturedDiff > 0) {
+        get().addLog('capture', `Player ${oware.currentPlayer + 1}`, `Captured ${capturedDiff} seeds in a chain!`);
+      }
+      set({ oware: { ...finalState, lastPitPlayed: currentPos }, isAnimating: false });
     } else {
       const newState = sowSeeds(oware, index);
-      set({ oware: newState });
+      set({ oware: { ...newState, lastPitPlayed: index } });
     }
     get().checkWinner();
     if (get().gameMode === 'online' && get().roomId) {
       const state = get();
-      await fetch(`/api/games/${get().roomId}/sync`, { 
-        method: 'POST', 
-        body: JSON.stringify({ state: { ludo: state.ludo, oware: state.oware, winner: state.winner, battleLog: state.battleLog } }) 
+      await fetch(`/api/games/${get().roomId}/sync`, {
+        method: 'POST',
+        body: JSON.stringify({ state: { ludo: state.ludo, oware: state.oware, winner: state.winner, battleLog: state.battleLog } })
       });
     }
     if (get().gameMode === 'pvc' && get().oware.currentPlayer === 1 && !get().winner) {
@@ -198,8 +200,31 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       });
     } else if (state.gameType === 'oware') {
-      if (state.oware.captured[0] >= 25) { set({ winner: 'PLAYER 1' }); get().addLog('win', 'P1', "WON THE GAME!"); }
-      else if (state.oware.captured[1] >= 25) { set({ winner: 'PLAYER 2' }); get().addLog('win', 'P2', "WON THE GAME!"); }
+      const oware = state.oware;
+      const validMoves = getValidOwareMoves(oware);
+      // Endgame condition: No legal moves or 25+ seeds captured
+      if (oware.captured[0] >= 25) { 
+        set({ winner: 'PLAYER 1' }); 
+        get().addLog('win', 'P1', "WON THE GAME!"); 
+      } else if (oware.captured[1] >= 25) { 
+        set({ winner: 'PLAYER 2' }); 
+        get().addLog('win', 'P2', "WON THE GAME!"); 
+      } else if (validMoves.length === 0) {
+        // Collect remaining seeds
+        const finalCaptured = [...oware.captured];
+        const p1Seeds = oware.pits.slice(0, 6).reduce((a, b) => a + b, 0);
+        const p2Seeds = oware.pits.slice(6, 12).reduce((a, b) => a + b, 0);
+        finalCaptured[0] += p1Seeds;
+        finalCaptured[1] += p2Seeds;
+        const winner = finalCaptured[0] > finalCaptured[1] ? 'PLAYER 1' : 
+                       finalCaptured[1] > finalCaptured[0] ? 'PLAYER 2' : 'DRAW';
+        set({ 
+          winner, 
+          oware: { ...oware, captured: finalCaptured as [number, number], pits: Array(12).fill(0) } 
+        });
+        get().addLog('win', winner === 'DRAW' ? 'SYSTEM' : winner === 'PLAYER 1' ? 'P1' : 'P2', 
+          winner === 'DRAW' ? "IT'S A DRAW!" : "WON BY TOTAL COUNT!");
+      }
     }
   },
   checkCPUTurn: () => {
@@ -212,6 +237,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   resetGame: () => set({
     winner: null, selectedTokenId: null, isAnimating: false, battleLog: [],
     ludo: { tokens: initialLudoTokens(), currentPlayer: 'red', diceRoll: null, isRolling: false, validMoves: [], consecutiveSixes: 0, showTripleSixWarning: false },
-    oware: createInitialOware()
+    oware: { ...createInitialOware(), lastPitPlayed: undefined }
   })
 }));

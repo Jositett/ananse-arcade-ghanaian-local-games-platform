@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
 import { BattleLog } from '@/components/game/BattleLog';
 import { cn } from '@/lib/utils';
+import { getValidOwareMoves } from '@/lib/game-logic/oware-engine';
+import { Ban } from 'lucide-react';
 export function OwarePage() {
   const pits = useGameStore(s => s.oware.pits);
   const captured = useGameStore(s => s.oware.captured);
@@ -18,19 +20,23 @@ export function OwarePage() {
   const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
   const winner = useGameStore(s => s.winner);
+  const owareState = useGameStore(s => s.oware);
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const interval = setInterval(syncWithServer, 2000);
       return () => clearInterval(interval);
     }
   }, [gameMode, roomId, syncWithServer]);
+  const validMoves = getValidOwareMoves(owareState);
   const isMyTurn = gameMode === 'online' ? currentPlayer === localPlayerId :
                   gameMode === 'pvc' ? currentPlayer === 0 : true;
   const renderPit = (index: number) => {
     const isPlayerPit = index < 6;
     const isLocalSlot = (localPlayerId === 0 && isPlayerPit) || (localPlayerId === 1 && !isPlayerPit);
-    const isClickable = isMyTurn && isLocalSlot && pits[index] > 0 && !winner && !isAnimating;
+    const isLegal = validMoves.includes(index);
+    const isClickable = isMyTurn && isLocalSlot && isLegal && !winner && !isAnimating;
     const isHighlight = lastPitPlayed === index && isAnimating;
+    const isForbidden = isLocalSlot && pits[index] > 0 && !isLegal;
     return (
       <motion.div
         key={index}
@@ -40,12 +46,18 @@ export function OwarePage() {
         className={cn(
           "aspect-square rounded-full border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center relative transition-all duration-300",
           isClickable ? "bg-amber-100 border-amber-600 cursor-pointer" : "bg-stone-300/50 grayscale-[0.2]",
-          isHighlight && "bg-yellow-400 border-yellow-600 scale-110 shadow-[0_0_25px_rgba(255,215,0,0.6)]"
+          isHighlight && "bg-yellow-400 border-yellow-600 scale-110 shadow-[0_0_25px_rgba(255,215,0,0.6)]",
+          isForbidden && "bg-red-50 cursor-not-allowed opacity-80"
         )}
       >
         <div className="absolute inset-0 rounded-full bg-black/5 inner-shadow pointer-events-none" />
+        {isForbidden && (
+          <div className="absolute -top-1 -left-1 z-20 bg-red-500 rounded-full p-1 border-2 border-black">
+            <Ban className="w-4 h-4 text-white" />
+          </div>
+        )}
         <AnimatePresence mode="wait">
-          <motion.span 
+          <motion.span
             key={pits[index]}
             initial={isHighlight ? { scale: 1.5, color: '#000' } : {}}
             animate={{ scale: 1 }}
