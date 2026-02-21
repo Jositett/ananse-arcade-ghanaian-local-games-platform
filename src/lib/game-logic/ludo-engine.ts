@@ -42,69 +42,72 @@ export const PLAYER_CONFIG = {
 };
 export const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 export function isSafeZone(pos: number): boolean {
-  return SAFE_ZONES.includes(pos) || pos >= 52;
+  return SAFE_ZONES.includes(pos);
 }
-export function getNewPosition(pos: number, roll: number, color: PlayerColor, direction: 'forward' | 'backward'): number | null {
+export function isCellBlocked(tokens: Token[], pos: number): boolean {
+  if (pos === -1 || pos === 58) return false;
+  const tokensOnCell = tokens.filter(t => t.position === pos);
+  if (tokensOnCell.length < 2) return false;
+  const firstColor = tokensOnCell[0].color;
+  return tokensOnCell.every(t => t.color === firstColor);
+}
+export function getNewPosition(pos: number, roll: number, color: PlayerColor, direction: 'forward' | 'backward'): { pos: number; type: 'forward' | 'backward' | 'bounce' } | null {
   if (pos === -1) {
-    return (roll === 6 && direction === 'forward') ? PLAYER_CONFIG[color].startIdx : null;
+    return (roll === 6 && direction === 'forward') ? { pos: PLAYER_CONFIG[color].startIdx, type: 'forward' } : null;
   }
   if (pos === 58) return null;
   let current = pos;
   const config = PLAYER_CONFIG[color];
-  for (let i = 0; i < roll; i++) {
-    if (direction === 'forward') {
+  if (direction === 'forward') {
+    for (let i = 0; i < roll; i++) {
       if (current === config.entryIdx) {
         current = 52;
       } else if (current >= 52) {
-        if (current + 1 > 58) return null;
+        if (current === 57) {
+          // Bouncing logic (Overshoot)
+          const remainder = roll - i;
+          return { pos: 58 - remainder, type: 'bounce' };
+        }
         current++;
       } else {
         current = (current + 1) % 52;
       }
-    } else {
-      if (current >= 52) return null;
-      current = (current - 1 + 52) % 52;
     }
+    return { pos: current, type: 'forward' };
+  } else {
+    // Backward only on main path
+    if (pos >= 52) return null;
+    let target = (pos - roll + 52) % 52;
+    return { pos: target, type: 'backward' };
   }
-  return current;
 }
 export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number): LudoMove[] {
-  if (roll === null) return [];
   const moves: LudoMove[] = [];
   tokens.filter(t => t.color === color).forEach(t => {
-    const fwdPos = getNewPosition(t.position, roll, color, 'forward');
-    if (fwdPos !== null) {
-      moves.push({ tokenId: t.id, targetPos: fwdPos, direction: 'forward', isKick: false });
-    }
-    if (t.position >= 0 && t.position <= 51) {
-      const bwdPos = getNewPosition(t.position, roll, color, 'backward');
-      if (bwdPos !== null && !SAFE_ZONES.includes(bwdPos)) {
-        const opponentAtTarget = tokens.find(ot => ot.position === bwdPos && ot.color !== color);
-        if (opponentAtTarget) {
-          moves.push({
-            tokenId: t.id,
-            targetPos: bwdPos,
-            direction: 'backward',
-            isKick: true,
-            capturedTokenId: opponentAtTarget.id
-          });
-        }
+    // Forward Attempt
+    const fwdResult = getNewPosition(t.position, roll, color, 'forward');
+    if (fwdResult) {
+      if (!isCellBlocked(tokens, fwdResult.pos) || tokens.find(ot => ot.position === fwdResult.pos)?.color === color) {
+        moves.push({
+          tokenId: t.id,
+          targetPos: fwdResult.pos,
+          direction: fwdResult.type,
+          isKick: tokens.some(ot => ot.position === fwdResult.pos && ot.color !== color && !isSafeZone(fwdResult.pos) && fwdResult.pos < 52)
+        });
       }
     }
-    if (t.position >= 52 && t.position < 57) {
-      for (let step = 1; step <= roll; step++) {
-        const targetPos = t.position + step;
-        if (targetPos > 57) break;
-        const opponentAhead = tokens.find(ot => ot.color !== color && ot.position === targetPos);
-        if (opponentAhead) {
-          moves.push({
-            tokenId: t.id,
-            targetPos: targetPos,
-            direction: 'forward',
-            isKick: true,
-            capturedTokenId: opponentAhead.id
-          });
-        }
+    // Backward Attempt (Ghanaian Strategy)
+    const bwdResult = getNewPosition(t.position, roll, color, 'backward');
+    if (bwdResult && !isSafeZone(bwdResult.pos)) {
+      const targetOpponent = tokens.find(ot => ot.position === bwdResult.pos && ot.color !== color);
+      if (targetOpponent && !isCellBlocked(tokens, bwdResult.pos)) {
+        moves.push({
+          tokenId: t.id,
+          targetPos: bwdResult.pos,
+          direction: 'backward',
+          isKick: true,
+          capturedTokenId: targetOpponent.id
+        });
       }
     }
   });
@@ -120,39 +123,29 @@ export function moveToken(tokens: Token[], move: LudoMove, roll: number): {
   let captured = false;
   let extraTurn = roll === 6;
   const newTokens = tokens.map(t => {
-    if (t.id === move.tokenId) {
-      return { ...t, position: move.targetPos };
-    }
-    if (move.isKick && t.id === move.capturedTokenId) {
-      captured = true;
-      extraTurn = true;
-      return { ...t, position: -1 };
-    }
-    const isMainPath = move.targetPos <= 51;
-    const isSafe = SAFE_ZONES.includes(move.targetPos);
-    if (isMainPath && !isSafe && t.position === move.targetPos && t.color !== targetToken.color) {
-      captured = true;
-      extraTurn = true;
-      return { ...t, position: -1 };
+    if (t.id === move.tokenId) return { ...t, position: move.targetPos };
+    if (move.isKick) {
+      if (move.capturedTokenId && t.id === move.capturedTokenId) {
+        captured = true;
+        extraTurn = true;
+        return { ...t, position: -1 };
+      }
+      if (!move.capturedTokenId && t.position === move.targetPos && t.color !== targetToken.color && !isSafeZone(move.targetPos)) {
+        captured = true;
+        extraTurn = true;
+        return { ...t, position: -1 };
+      }
     }
     return t;
   });
   if (move.targetPos === 58) extraTurn = true;
+  if (move.direction === 'bounce') extraTurn = false; // Overshoot does not grant extra turn
   return { newTokens, captured, extraTurn };
 }
 export function getGridCoords(token: Token, tokenIdxInBase: number): [number, number] {
-  if (token.position === -1) {
-    return BASE_COORDS[token.color][tokenIdxInBase];
-  }
-  if (token.position >= 0 && token.position <= 51) {
-    return MAIN_PATH_COORDS[token.position];
-  }
-  if (token.position >= 52 && token.position <= 57) {
-    const stretchIdx = token.position - 52;
-    return HOME_STRETCH_COORDS[token.color][stretchIdx] || [7, 7];
-  }
-  if (token.position === 58) {
-    return HOME_CENTER_OFFSETS[token.color];
-  }
+  if (token.position === -1) return BASE_COORDS[token.color][tokenIdxInBase];
+  if (token.position >= 0 && token.position <= 51) return MAIN_PATH_COORDS[token.position];
+  if (token.position >= 52 && token.position <= 57) return HOME_STRETCH_COORDS[token.color][token.position - 52];
+  if (token.position === 58) return HOME_CENTER_OFFSETS[token.color];
   return [7, 7];
 }

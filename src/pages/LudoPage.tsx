@@ -3,11 +3,11 @@ import { cn } from '@/lib/utils';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
-import { Dice6, User, ShieldCheck, Star } from 'lucide-react';
+import { Dice6, User, ShieldCheck, Star, AlertTriangle, ShieldX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LudoToken } from '@/components/game/LudoToken';
 import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
-import { SAFE_ZONES, MAIN_PATH_COORDS } from '@/lib/game-logic/ludo-engine';
+import { SAFE_ZONES, MAIN_PATH_COORDS, isCellBlocked } from '@/lib/game-logic/ludo-engine';
 const COLORS = ['red', 'green', 'yellow', 'blue'];
 export function LudoPage() {
   const diceRoll = useGameStore(s => s.ludo.diceRoll);
@@ -16,21 +16,19 @@ export function LudoPage() {
   const currentPlayer = useGameStore(s => s.ludo.currentPlayer);
   const tokens = useGameStore(s => s.ludo.tokens);
   const validMoves = useGameStore(s => s.ludo.validMoves);
+  const showTripleWarning = useGameStore(s => s.ludo.showTripleSixWarning);
   const gameMode = useGameStore(s => s.gameMode);
   const roomId = useGameStore(s => s.roomId);
   const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
   const selectedTokenId = useGameStore(s => s.selectedTokenId);
-
   const getStackIndex = (token: any) => {
     const pos = token.position;
     if (pos === -1) {
-      // Base stacking: per-color rank by id asc
       const sameColorBaseTokens = tokens.filter(t => t.color === token.color && t.position === -1);
       sameColorBaseTokens.sort((a, b) => a.id - b.id);
       return sameColorBaseTokens.findIndex(t => t.id === token.id);
     } else {
-      // Path stacking: per-position global rank (color then id)
       const samePosTokens = tokens.filter(t => t.position === pos);
       samePosTokens.sort((a, b) => a.color.localeCompare(b.color) || (a.id - b.id));
       return samePosTokens.findIndex(t => t.id === token.id);
@@ -45,21 +43,23 @@ export function LudoPage() {
   const isMyTurn = gameMode === 'online' ? (COLORS.indexOf(currentPlayer) === localPlayerId) :
                   gameMode === 'pvc' ? currentPlayer === 'red' : true;
   const getCellClass = (r: number, c: number) => {
-    if (r === 6 && c === 1) return 'bg-red-400 border-2 border-black ring-inset ring-2 ring-white/50';
-    if (r === 1 && c === 8) return 'bg-green-500 border-2 border-black ring-inset ring-2 ring-white/50';
-    if (r === 8 && c === 13) return 'bg-yellow-400 border-2 border-black ring-inset ring-2 ring-white/50';
-    if (r === 13 && c === 6) return 'bg-blue-500 border-2 border-black ring-inset ring-2 ring-white/50';
+    if (r === 6 && c === 1) return 'bg-red-400 border-2 border-black';
+    if (r === 1 && c === 8) return 'bg-green-500 border-2 border-black';
+    if (r === 8 && c === 13) return 'bg-yellow-400 border-2 border-black';
+    if (r === 13 && c === 6) return 'bg-blue-500 border-2 border-black';
     if (r === 7 && c >= 1 && c <= 6) return 'bg-red-300';
     if (c === 7 && r >= 1 && r <= 6) return 'bg-green-400';
     if (r === 7 && c >= 8 && c <= 13) return 'bg-yellow-300';
     if (c === 7 && r >= 8 && r <= 13) return 'bg-blue-400';
     return 'bg-white';
   };
-  const isCellSafe = (r: number, c: number) => {
-    return SAFE_ZONES.some(idx => {
-      const coords = MAIN_PATH_COORDS[idx];
-      return coords && coords[0] === r && coords[1] === c;
-    });
+  const getCellStatus = (r: number, c: number) => {
+    const pathIdx = MAIN_PATH_COORDS.findIndex(coords => coords[0] === r && coords[1] === c);
+    if (pathIdx !== -1 && isCellBlocked(tokens, pathIdx)) {
+      const blocker = tokens.find(t => t.position === pathIdx);
+      if (blocker && blocker.color !== currentPlayer) return 'blocked';
+    }
+    return null;
   };
   return (
     <GameLayout title="Ludu Arena">
@@ -69,21 +69,36 @@ export function LudoPage() {
             {gameMode === 'online' && (
               <div className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-xl font-black text-sm uppercase">
                 <ShieldCheck className="w-5 h-5 text-green-400" />
-                You are {COLORS[localPlayerId]}
+                You: {COLORS[localPlayerId]}
               </div>
             )}
             <NeoBadge className="bg-white border-2 border-black font-black uppercase">{gameMode}</NeoBadge>
           </div>
           {roomId && <RoomInfo roomId={roomId} />}
         </div>
-        <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-12 items-center lg:items-start justify-center">
+        <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-12 items-center lg:items-start justify-center relative">
+          <AnimatePresence>
+            {showTripleWarning && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                className="absolute z-[300] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500 border-8 border-black p-8 rounded-[3rem] shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] text-center"
+              >
+                <AlertTriangle className="w-20 h-20 text-white mx-auto mb-4" />
+                <h2 className="text-4xl font-black text-white uppercase">Triple Six!</h2>
+                <p className="text-xl font-bold text-black uppercase bg-white px-4 py-1 mt-2">Turn Cancelled</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="relative aspect-square w-full max-w-[600px] bg-black p-2 rounded-2xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
             {Array.from({ length: 15 * 15 }).map((_, i) => {
               const r = Math.floor(i / 15);
               const c = i % 15;
               const isBase = (r < 6 && c < 6) || (r < 6 && c > 8) || (r > 8 && c < 6) || (r > 8 && c > 8);
               const isHome = r >= 6 && r <= 8 && c >= 6 && c <= 8;
-              const isSafe = isCellSafe(r, c);
+              const isSafe = SAFE_ZONES.some(idx => MAIN_PATH_COORDS[idx][0] === r && MAIN_PATH_COORDS[idx][1] === c);
+              const status = getCellStatus(r, c);
               return (
                 <div key={i} className={cn(
                   isBase ? 'opacity-40' : '',
@@ -91,6 +106,7 @@ export function LudoPage() {
                   "border-[0.5px] border-black/10 flex items-center justify-center relative"
                 )}>
                   {isSafe && !isHome && <Star className="w-3 h-3 text-black/20" />}
+                  {status === 'blocked' && <ShieldX className="w-4 h-4 text-red-600/60" />}
                 </div>
               );
             })}
@@ -109,10 +125,10 @@ export function LudoPage() {
           <div className="w-full lg:w-96 space-y-6">
             <NeoCard className="p-8">
               <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
-                <User className="w-5 h-5" /> Current Player
+                <User className="w-5 h-5" /> Active Player
               </h3>
               <div className={cn(
-                "flex items-center gap-4 mb-4 p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+                "flex items-center gap-4 mb-4 p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-colors",
                 currentPlayer === 'red' ? 'bg-red-400' : currentPlayer === 'green' ? 'bg-green-500' : currentPlayer === 'blue' ? 'bg-blue-500' : 'bg-yellow-400'
               )}>
                 <div className="w-12 h-12 rounded-full border-4 border-black bg-white flex items-center justify-center font-black">!</div>
@@ -132,9 +148,9 @@ export function LudoPage() {
                 <NeoButton
                   onClick={rollDice}
                   disabled={isRolling || diceRoll !== null || !isMyTurn}
-                  className={cn("w-full py-8 text-3xl bg-yellow-400", !isMyTurn && "opacity-30 grayscale")}
+                  className={cn("w-full py-8 text-3xl bg-yellow-400 font-black", !isMyTurn && "opacity-30")}
                 >
-                  ROLL
+                  ROLL DICE
                 </NeoButton>
               </div>
             </NeoCard>

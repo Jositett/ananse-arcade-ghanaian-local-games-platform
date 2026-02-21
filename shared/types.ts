@@ -12,7 +12,7 @@ export type GameType = 'ludo' | 'oware';
 export interface LudoMove {
   tokenId: number;
   targetPos: number;
-  direction: 'forward' | 'backward';
+  direction: 'forward' | 'backward' | 'bounce';
   isKick: boolean;
   capturedTokenId?: number;
 }
@@ -24,4 +24,12 @@ export interface GameSession {
   playerCount: number;
   lastActionTimestamp: number;
   updatedAt: number;
+}
+export interface LudoState {
+  tokens: any[];
+  currentPlayer: string;
+  diceRoll: number | null;
+  isRolling: boolean;
+  validMoves: LudoMove[];
+  consecutiveSixes: number;
 }

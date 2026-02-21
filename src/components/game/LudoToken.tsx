@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Token, getGridCoords } from '@/lib/game-logic/ludo-engine';
+import { Token, getGridCoords, isCellBlocked } from '@/lib/game-logic/ludo-engine';
 import { useGameStore } from '@/store/game-store';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Zap, Swords } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap, Swords, RotateCcw, Shield } from 'lucide-react';
 interface LudoTokenProps {
   token: Token;
   indexInBase: number;
@@ -14,11 +14,13 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
   const selectLudoToken = useGameStore(s => s.selectLudoToken);
   const ludoValidMoves = useGameStore(s => s.ludo.validMoves);
   const executeMove = useGameStore(s => s.executeLudoMove);
+  const allTokens = useGameStore(s => s.ludo.tokens);
   const coords = getGridCoords(token, indexInBase);
   const top = (coords[0] / 15) * 100;
   const left = (coords[1] / 15) * 100;
   const cellSize = 100 / 15;
-  const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 1.5;
+  const isBlocked = isCellBlocked(allTokens, token.position);
+  const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 2;
   const colorMap = {
     red: 'bg-red-500',
     green: 'bg-green-500',
@@ -54,50 +56,46 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
           isSelected && "ring-black ring-offset-4"
         )}
       >
-        <div className="w-1/2 h-1/2 rounded-full border-2 border-black/20 bg-white/30" />
+        <div className="w-1/2 h-1/2 rounded-full border-2 border-black/20 bg-white/30 flex items-center justify-center">
+          {isBlocked && <Shield className="w-3 h-3 text-black/40" />}
+        </div>
       </motion.button>
       <AnimatePresence>
         {isSelected && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5, y: isTopEdge ? -10 : 10 }}
+            initial={{ opacity: 0, scale: 0.5, y: isTopEdge ? 10 : -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: isTopEdge ? -10 : 10 }}
+            exit={{ opacity: 0, scale: 0.5, y: isTopEdge ? 10 : -10 }}
             className={cn(
               "absolute left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]",
-              isTopEdge ? "top-20" : "-top-24"
+              isTopEdge ? "top-14" : "-top-20"
             )}
           >
-            {tokenMoves.map((m, i) => {
-              const isStrike = m.isKick && m.targetPos >= 52;
-              return (
-                <button
-                  key={i}
-                  onClick={(e) => { e.stopPropagation(); executeMove(m); }}
-                  className={cn(
-                    "w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]",
-                    isStrike ? "bg-red-500 text-white" :
-                    m.isKick ? "bg-orange-500 text-white" :
-                    m.direction === 'forward' ? "bg-green-400" : "bg-yellow-400"
-                  )}
-                >
-                  {isStrike ? (
-                    <div className="flex flex-col items-center">
-                      <Swords size={20} />
-                      <span className="text-[9px] font-black uppercase mt-0.5">Strike</span>
-                    </div>
-                  ) : m.isKick ? (
-                    <div className="flex flex-col items-center">
-                      <Zap size={20} fill="currentColor" />
-                      <span className="text-[9px] font-black uppercase mt-0.5">Kick</span>
-                    </div>
-                  ) : m.direction === 'forward' ? (
-                    <ArrowRight size={24} />
-                  ) : (
-                    <ArrowLeft size={24} />
-                  )}
-                </button>
-              );
-            })}
+            {tokenMoves.map((m, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); executeMove(m); }}
+                className={cn(
+                  "w-14 h-14 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
+                  m.direction === 'bounce' ? "bg-purple-500 text-white" :
+                  m.direction === 'backward' ? "bg-yellow-400" :
+                  m.isKick ? "bg-red-500 text-white" : "bg-green-400"
+                )}
+              >
+                {m.direction === 'bounce' ? (
+                  <RotateCcw size={20} />
+                ) : m.direction === 'backward' ? (
+                  <ArrowLeft size={20} />
+                ) : m.isKick ? (
+                  <Swords size={20} />
+                ) : (
+                  <ArrowRight size={20} />
+                )}
+                <span className="text-[8px] font-black uppercase mt-0.5">
+                  {m.direction === 'bounce' ? 'Bounce' : m.direction === 'backward' ? 'Back' : m.isKick ? 'Kick' : 'Move'}
+                </span>
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
