@@ -1,138 +1,77 @@
-// Home page of the app.
-// Currently a demo placeholder "please wait" screen.
-// Replace this file with your actual app UI. Do not delete it to use some other file as homepage. Simply replace the entire contents of this file.
-
-import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
-
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { HAS_TEMPLATE_DEMO, TemplateDemo } from '@/components/TemplateDemo'
-import { Button } from '@/components/ui/button'
-import { Toaster, toast } from '@/components/ui/sonner'
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Sparkles, Gamepad2, Trophy } from 'lucide-react';
+import { NeoCard, NeoButton, NeoBadge } from '@/components/ui/neo-primitives';
+import { useGameStore } from '@/store/game-store';
 export function HomePage() {
-  const [coins, setCoins] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
-
-  useEffect(() => {
-    if (!isRunning || startedAt === null) return
-
-    const t = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 250)
-
-    return () => clearInterval(t)
-  }, [isRunning, startedAt])
-
-  const formatted = useMemo(() => formatDuration(elapsedMs), [elapsedMs])
-
-  const onPleaseWait = () => {
-    setCoins((c) => c + 1)
-
-    if (!isRunning) {
-      // Resume from the current elapsed time
-      setStartedAt(Date.now() - elapsedMs)
-      setIsRunning(true)
-      toast.success('Building your app…', {
-        description: "Hang tight — we're setting everything up.",
-      })
-      return
+  const navigate = useNavigate();
+  const setGame = useGameStore(s => s.setGame);
+  const games = [
+    {
+      id: 'ludo',
+      title: 'Ludu',
+      description: 'Race your tokens home in this classic board game!',
+      color: 'bg-yellow-400',
+      icon: <Gamepad2 className="w-12 h-12" />,
+      path: '/ludo'
+    },
+    {
+      id: 'oware',
+      title: 'Oware',
+      description: 'The world-famous strategy game of pits and seeds.',
+      color: 'bg-green-500',
+      icon: <Trophy className="w-12 h-12" />,
+      path: '/oware'
     }
-
-    setIsRunning(false)
-    toast.info('Still working…', {
-      description: 'You can come back in a moment.',
-    })
-  }
-
-  const onReset = () => {
-    setCoins(0)
-    setIsRunning(false)
-    setStartedAt(null)
-    setElapsedMs(0)
-    toast('Reset complete')
-  }
-
-  const onAddCoin = () => {
-    setCoins((c) => c + 1)
-    toast('Coin added')
-  }
-
+  ];
+  const handleSelect = (id: 'ludo' | 'oware', path: string) => {
+    setGame(id);
+    navigate(path);
+  };
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-      <ThemeToggle />
-      <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-
-      <div className="text-center space-y-8 relative z-10 animate-fade-in w-full">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-            <Sparkles className="w-8 h-8 text-white rotating" />
+    <div className="min-h-screen bg-[#FFFDF5] text-black">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-12 md:py-20 flex flex-col items-center">
+          <div className="mb-8 flex items-center gap-4 animate-bounce">
+            <div className="p-4 bg-red-500 border-4 border-black rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <Sparkles className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase">Ananse Arcade</h1>
           </div>
-        </div>
-
-        <div className="space-y-3">
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
+          <p className="text-xl md:text-2xl font-bold text-center max-w-2xl mb-16 text-muted-foreground">
+            Experience the vibrant spirit of Ghana through our classic local games!
           </p>
-        </div>
-
-        {HAS_TEMPLATE_DEMO ? (
-          <div className="max-w-5xl mx-auto text-left">
-            <TemplateDemo />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 w-full max-w-4xl">
+            {games.map((game) => (
+              <NeoCard key={game.id} className="group cursor-pointer hover:-translate-y-2 transition-transform duration-300">
+                <div className={`${game.color} p-8 border-b-4 border-black flex justify-center`}>
+                  <div className="bg-white p-6 border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    {game.icon}
+                  </div>
+                </div>
+                <div className="p-8 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-3xl font-black uppercase">{game.title}</h2>
+                    <NeoBadge className="bg-white">Classic</NeoBadge>
+                  </div>
+                  <p className="font-bold text-lg leading-tight">{game.description}</p>
+                  <NeoButton 
+                    className="w-full bg-white hover:bg-black hover:text-white"
+                    onClick={() => handleSelect(game.id as any, game.path)}
+                  >
+                    Play Now
+                  </NeoButton>
+                </div>
+              </NeoCard>
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="flex justify-center gap-4">
-              <Button
-                size="lg"
-                onClick={onPleaseWait}
-                className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-                aria-live="polite"
-              >
-                Please Wait
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-              <div>
-                Time elapsed:{' '}
-                <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-              </div>
-              <div>
-                Coins:{' '}
-                <span className="font-medium tabular-nums text-foreground">{coins}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={onReset}>
-                Reset
-              </Button>
-              <Button variant="outline" size="sm" onClick={onAddCoin}>
-                Add Coin
-              </Button>
-            </div>
-          </>
-        )}
+          <footer className="mt-24 text-center">
+            <p className="font-black text-sm uppercase tracking-widest border-b-4 border-black pb-2 inline-block">
+              Made with ❤️ for Ghana
+            </p>
+          </footer>
+        </div>
       </div>
-
-      <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-        <p>Powered by Cloudflare</p>
-      </footer>
-
-      <Toaster richColors closeButton />
     </div>
-  )
+  );
 }
