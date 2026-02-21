@@ -42,6 +42,25 @@ export const PLAYER_CONFIG = {
   blue: { startIdx: 39, entryIdx: 37, color: 'blue' }
 };
 export const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
+
+export function getNewPosition(pos: number, roll: number, color: PlayerColor): number | null {
+  if (pos === -1) {
+    return roll === 6 ? PLAYER_CONFIG[color].startIdx : null;
+  }
+  let current = pos;
+  for (let i = 0; i < roll; i++) {
+    const config = PLAYER_CONFIG[color];
+    if (current === config.entryIdx) {
+      current = 52;
+    } else if (current >= 52) {
+      if (current + 1 > 58) return null;
+      current++;
+    } else {
+      current = (current + 1) % 52;
+    }
+  }
+  return current;
+}
 export function getGridCoords(token: Token, tokenIdxInBase: number): [number, number] {
   if (token.position === -1) {
     return BASE_COORDS[token.color][tokenIdxInBase];
@@ -58,57 +77,32 @@ export function getGridCoords(token: Token, tokenIdxInBase: number): [number, nu
 export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number): number[] {
   if (roll === null) return [];
   return tokens
-    .filter(t => t.color === color)
-    .filter(t => {
-      if (t.position === -1) return roll === 6;
-      if (t.position === 58) return false;
-      const config = PLAYER_CONFIG[color];
-      const distToHome = 58 - t.position;
-      if (roll > distToHome) return false;
-      return true;
-    })
+    .filter(t => t.color === color && t.position !== 58)
+    .filter(t => getNewPosition(t.position, roll, color) !== null)
     .map(t => t.id);
 }
-export function moveToken(tokens: Token[], tokenId: number, roll: number): { 
-  newTokens: Token[], 
+export function moveToken(tokens: Token[], tokenId: number, roll: number): {
+  newTokens: Token[],
   captured: boolean,
-  extraTurn: boolean 
+  extraTurn: boolean
 } {
+  const targetToken = tokens.find(t => t.id === tokenId);
+  if (!targetToken) return { newTokens: tokens, captured: false, extraTurn: false };
+  const newPos = getNewPosition(targetToken.position, roll, targetToken.color);
+  if (newPos === null) return { newTokens: tokens, captured: false, extraTurn: roll === 6 };
   let captured = false;
   let extraTurn = roll === 6;
-  const targetToken = tokens.find(t => t.id === tokenId);
-  if (!targetToken) return { newTokens: tokens, captured, extraTurn };
-  const colorConfig = PLAYER_CONFIG[targetToken.color];
-  let nextPos = targetToken.position;
-  if (targetToken.position === -1) {
-    nextPos = colorConfig.startIdx;
-  } else {
-    // Logic for pathing from main to home stretch
-    for (let i = 0; i < roll; i++) {
-      if (nextPos === colorConfig.entryIdx) {
-        nextPos = 52; // Enter home stretch
-      } else if (nextPos >= 52) {
-        nextPos++;
-      } else {
-        nextPos = (nextPos + 1) % 52;
-      }
-    }
-  }
   const newTokens = tokens.map(t => {
-    if (t.id === tokenId) return { ...t, position: nextPos };
-    // Capture logic: Only on main path (0-51) and not in safe zones
-    if (
-      nextPos <= 51 && 
-      !SAFE_ZONES.includes(nextPos) && 
-      t.position === nextPos && 
-      t.color !== targetToken.color
-    ) {
+    if (t.id === tokenId) {
+      return { ...t, position: newPos };
+    }
+    if (newPos <= 51 && !SAFE_ZONES.includes(newPos) && t.position === newPos && t.color !== targetToken.color) {
       captured = true;
       extraTurn = true;
       return { ...t, position: -1 };
     }
     return t;
   });
-  if (nextPos === 58) extraTurn = true;
+  if (newPos === 58) extraTurn = true;
   return { newTokens, captured, extraTurn };
 }

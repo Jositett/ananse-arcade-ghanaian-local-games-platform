@@ -27,9 +27,13 @@ interface GameState {
 }
 const COLORS: PlayerColor[] = ['red', 'green', 'yellow', 'blue'];
 const initialLudoTokens = (): Token[] =>
-  COLORS.flatMap(color =>
-    [1, 2, 3, 4].map(id => ({ id: Math.random(), color, position: -1 }))
-  );
+  COLORS.flatMap(color => {
+    const colorIndex = COLORS.indexOf(color);
+    return [1, 2, 3, 4].map(id => {
+      const uniqueId = colorIndex * 4 + id;
+      return { id: uniqueId, color, position: -1 };
+    });
+  });
 export const useGameStore = create<GameState>((set, get) => ({
   gameType: null,
   gameMode: 'pvp',
@@ -77,7 +81,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (ludo.isRolling || ludo.diceRoll !== null) return;
     // Turn enforcement
     if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
-    if (gameMode === 'pvc' && ludo.currentPlayer !== 'red') return;
     set((state) => ({ ludo: { ...state.ludo, isRolling: true } }));
     setTimeout(async () => {
       const roll = Math.floor(Math.random() * 6) + 1;
@@ -85,6 +88,24 @@ export const useGameStore = create<GameState>((set, get) => ({
       set((state) => ({
         ludo: { ...state.ludo, isRolling: false, diceRoll: roll, validMoveIds: validMoves }
       }));
+
+      if (gameMode === 'pvc' && ludo.currentPlayer !== 'red') {
+        setTimeout(async () => {
+          const state = get();
+          if (state.ludo.diceRoll === null) return;
+          const bestTokenId = await getBestLudoMove(state.ludo.tokens, state.ludo.currentPlayer, state.ludo.diceRoll!);
+          if (bestTokenId !== null && state.ludo.validMoveIds.includes(bestTokenId)) {
+            get().moveLudoToken(bestTokenId);
+          } else {
+            const nextIdx = (COLORS.indexOf(state.ludo.currentPlayer) + 1) % 4;
+            set((s) => ({
+              ludo: { ...s.ludo, diceRoll: null, validMoveIds: [], currentPlayer: COLORS[nextIdx] }
+            }));
+            get().checkCPUTurn();
+          }
+        }, 1500);
+      }
+
       if (gameMode === 'online' && roomId) {
         await fetch(`/api/games/${roomId}/sync`, {
           method: 'POST',
@@ -93,14 +114,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       if (validMoves.length === 0) {
         setTimeout(async () => {
-          const nextIdx = (COLORS.indexOf(get().ludo.currentPlayer) + 1) % 4;
+          const state = get();
+          const nextIdx = (COLORS.indexOf(state.ludo.currentPlayer) + 1) % 4;
           set(s => ({
             ludo: { ...s.ludo, diceRoll: null, currentPlayer: COLORS[nextIdx], validMoveIds: [] }
           }));
-          if (gameMode === 'online' && roomId) {
-            await fetch(`/api/games/${roomId}/sync`, {
+          const currentState = get();
+          if (currentState.gameMode === 'online' && currentState.roomId) {
+            await fetch(`/api/games/${currentState.roomId}/sync`, {
               method: 'POST',
-              body: JSON.stringify({ state: get() })
+              body: JSON.stringify({ state: currentState })
             });
           }
           get().checkCPUTurn();
