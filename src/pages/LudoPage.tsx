@@ -21,6 +21,21 @@ export function LudoPage() {
   const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
   const selectedTokenId = useGameStore(s => s.selectedTokenId);
+
+  const getStackIndex = (token: any) => {
+    const pos = token.position;
+    if (pos === -1) {
+      // Base stacking: per-color rank by id asc
+      const sameColorBaseTokens = tokens.filter(t => t.color === token.color && t.position === -1);
+      sameColorBaseTokens.sort((a, b) => a.id.localeCompare(b.id));
+      return sameColorBaseTokens.findIndex(t => t.id === token.id);
+    } else {
+      // Path stacking: per-position global rank (color then id)
+      const samePosTokens = tokens.filter(t => t.position === pos);
+      samePosTokens.sort((a, b) => a.color.localeCompare(b.color) || a.id.localeCompare(b.id));
+      return samePosTokens.findIndex(t => t.id === token.id);
+    }
+  };
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const interval = setInterval(syncWithServer, 2000);
@@ -80,11 +95,11 @@ export function LudoPage() {
               );
             })}
             <AnimatePresence>
-              {tokens.map((token, idx) => (
+              {tokens.map((token) => (
                 <LudoToken
                   key={token.id}
                   token={token}
-                  indexInBase={idx % 4}
+                  indexInBase={getStackIndex(token)}
                   isValidMove={validMoves.some(m => m.tokenId === token.id) && isMyTurn}
                   isSelected={selectedTokenId === token.id}
                 />
