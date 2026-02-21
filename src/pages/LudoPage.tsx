@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
-import { NeoButton, NeoCard } from '@/components/ui/neo-primitives';
+import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
 import { Dice6 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LudoToken } from '@/components/game/LudoToken';
@@ -13,13 +13,20 @@ export function LudoPage() {
   const currentPlayer = useGameStore(s => s.ludo.currentPlayer);
   const tokens = useGameStore(s => s.ludo.tokens);
   const validMoveIds = useGameStore(s => s.ludo.validMoveIds);
+  const gameMode = useGameStore(s => s.gameMode);
+  const roomId = useGameStore(s => s.roomId);
+  const syncWithServer = useGameStore(s => s.syncWithServer);
+  useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const interval = setInterval(syncWithServer, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [gameMode, roomId, syncWithServer]);
   const getCellClass = (r: number, c: number) => {
-    // Basic coloring for paths
     if (r === 7 && c > 0 && c < 6) return 'bg-red-400';
     if (c === 7 && r > 0 && r < 6) return 'bg-green-500';
     if (r === 7 && c > 8 && c < 14) return 'bg-yellow-400';
     if (c === 7 && r > 8 && r < 14) return 'bg-blue-500';
-    // Safety & Starts
     if ((r === 6 && c === 1) || (r === 8 && c === 2)) return 'bg-red-200';
     if ((r === 1 && c === 8) || (r === 2 && c === 6)) return 'bg-green-200';
     return 'bg-white';
@@ -27,6 +34,13 @@ export function LudoPage() {
   return (
     <GameLayout title="Ludo Arena">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2">
+            <NeoBadge className="bg-red-400">P1 (Red)</NeoBadge>
+            {gameMode === 'online' && <NeoBadge className="bg-yellow-400">Room: {roomId}</NeoBadge>}
+          </div>
+          <NeoBadge className="bg-white border-2 border-black font-black uppercase">{gameMode}</NeoBadge>
+        </div>
         <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-8 items-start justify-center">
           <div className="relative aspect-square w-full max-w-[600px] bg-black p-1 rounded-xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
             {Array.from({ length: 15 * 15 }).map((_, i) => {
@@ -35,10 +49,10 @@ export function LudoPage() {
               const isBase = (r < 6 && c < 6) || (r < 6 && c > 8) || (r > 8 && c < 6) || (r > 8 && c > 8);
               const isHome = r >= 6 && r <= 8 && c >= 6 && c <= 8;
               return (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={`
-                    ${isBase ? 'opacity-30' : ''} 
+                    ${isBase ? 'opacity-30' : ''}
                     ${isHome ? 'bg-black' : getCellClass(r, c)}
                     border-[0.5px] border-black/10
                   `}
@@ -47,11 +61,11 @@ export function LudoPage() {
             })}
             <AnimatePresence>
               {tokens.map((token, idx) => (
-                <LudoToken 
-                  key={token.id} 
-                  token={token} 
+                <LudoToken
+                  key={token.id}
+                  token={token}
                   indexInBase={idx % 4}
-                  isValidMove={validMoveIds.includes(token.id)} 
+                  isValidMove={validMoveIds.includes(token.id)}
                 />
               ))}
             </AnimatePresence>
@@ -77,7 +91,7 @@ export function LudoPage() {
                 </motion.div>
                 <NeoButton
                   onClick={rollDice}
-                  disabled={isRolling || diceRoll !== null || (useGameStore.getState().gameMode === 'pvc' && currentPlayer !== 'red')}
+                  disabled={isRolling || diceRoll !== null || (gameMode === 'pvc' && currentPlayer !== 'red')}
                   className="w-full bg-yellow-400 hover:bg-yellow-300 py-6 text-2xl"
                 >
                   ROLL

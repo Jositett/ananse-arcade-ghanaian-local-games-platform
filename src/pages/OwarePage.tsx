@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
@@ -10,6 +10,14 @@ export function OwarePage() {
   const currentPlayer = useGameStore(s => s.oware.currentPlayer);
   const playPit = useGameStore(s => s.playOwarePit);
   const gameMode = useGameStore(s => s.gameMode);
+  const roomId = useGameStore(s => s.roomId);
+  const syncWithServer = useGameStore(s => s.syncWithServer);
+  useEffect(() => {
+    if (gameMode === 'online' && roomId) {
+      const interval = setInterval(syncWithServer, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [gameMode, roomId, syncWithServer]);
   const renderPit = (index: number) => {
     const isMyTurn = (currentPlayer === 0 && index < 6) || (currentPlayer === 1 && index >= 6);
     const isCPU = gameMode === 'pvc' && currentPlayer === 1;
@@ -34,6 +42,13 @@ export function OwarePage() {
   return (
     <GameLayout title="Oware Pit">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 flex flex-col gap-12">
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <NeoBadge className="bg-blue-400">Local Player</NeoBadge>
+            {gameMode === 'online' && <NeoBadge className="bg-yellow-400">Room: {roomId}</NeoBadge>}
+          </div>
+          <NeoBadge className="bg-white border-4 border-black">{gameMode.toUpperCase()}</NeoBadge>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <NeoCard className="p-6 bg-blue-100 border-4 border-black">
             <p className="font-black text-sm uppercase mb-1">Player 1</p>

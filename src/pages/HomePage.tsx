@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Gamepad2, Trophy } from 'lucide-react';
 import { NeoCard, NeoButton, NeoBadge } from '@/components/ui/neo-primitives';
 import { useGameStore } from '@/store/game-store';
+import { GameModeSelector } from '@/components/game/GameModals';
 export function HomePage() {
   const navigate = useNavigate();
-  const setGame = useGameStore(s => s.setGame);
+  const [selectedGame, setSelectedGame] = useState<'ludo' | 'oware' | null>(null);
   const games = [
     {
-      id: 'ludo',
+      id: 'ludo' as const,
       title: 'Ludu',
       description: 'Race your tokens home in this classic board game!',
       color: 'bg-yellow-400',
@@ -16,7 +17,7 @@ export function HomePage() {
       path: '/ludo'
     },
     {
-      id: 'oware',
+      id: 'oware' as const,
       title: 'Oware',
       description: 'The world-famous strategy game of pits and seeds.',
       color: 'bg-green-500',
@@ -24,10 +25,6 @@ export function HomePage() {
       path: '/oware'
     }
   ];
-  const handleSelect = (id: 'ludo' | 'oware', path: string) => {
-    setGame(id);
-    navigate(path);
-  };
   return (
     <div className="min-h-screen bg-[#FFFDF5] text-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -55,9 +52,9 @@ export function HomePage() {
                     <NeoBadge className="bg-white">Classic</NeoBadge>
                   </div>
                   <p className="font-bold text-lg leading-tight">{game.description}</p>
-                  <NeoButton 
+                  <NeoButton
                     className="w-full bg-white hover:bg-black hover:text-white"
-                    onClick={() => handleSelect(game.id as any, game.path)}
+                    onClick={() => setSelectedGame(game.id)}
                   >
                     Play Now
                   </NeoButton>
@@ -72,6 +69,12 @@ export function HomePage() {
           </footer>
         </div>
       </div>
+      {selectedGame && (
+        <GameModeSelector 
+          gameType={selectedGame} 
+          onClose={() => setSelectedGame(null)} 
+        />
+      )}
     </div>
   );
 }
