@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Token, getGridCoords } from '@/lib/game-logic/ludo-engine';
 import { useGameStore } from '@/store/game-store';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap, Target } from 'lucide-react';
 interface LudoTokenProps {
   token: Token;
   indexInBase: number;
@@ -56,22 +56,31 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
       <AnimatePresence>
         {isSelected && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            className="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-auto z-[200]"
+            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 10 }}
+            className="absolute -top-20 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]"
           >
             {tokenMoves.map((m, i) => (
               <button
                 key={i}
                 onClick={(e) => { e.stopPropagation(); executeMove(m); }}
                 className={cn(
-                  "w-12 h-12 rounded-xl border-4 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transition-transform active:scale-90",
-                  m.isKick ? "bg-red-500 text-white" : 
+                  "w-14 h-14 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
+                  m.isKick ? "bg-red-500 text-white" :
                   m.direction === 'forward' ? "bg-green-400" : "bg-yellow-400"
                 )}
               >
-                {m.isKick ? <Zap size={20} /> : m.direction === 'forward' ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
+                {m.isKick ? (
+                  <div className="flex flex-col items-center">
+                    <Zap size={18} fill="currentColor" />
+                    <span className="text-[10px] font-black uppercase">Kick</span>
+                  </div>
+                ) : m.direction === 'forward' ? (
+                  <ArrowRight size={24} />
+                ) : (
+                  <ArrowLeft size={24} />
+                )}
               </button>
             ))}
           </motion.div>

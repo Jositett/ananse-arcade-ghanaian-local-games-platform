@@ -56,7 +56,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     oware: createInitialOware()
   }),
   syncWithServer: async () => {
-    const { roomId, gameMode } = get();
+    const roomId = get().roomId;
+    const gameMode = get().gameMode;
     if (gameMode !== 'online' || !roomId) return;
     try {
       const res = await fetch(`/api/games/${roomId}`);
@@ -65,7 +66,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     } catch (e) { console.error("Sync failed", e); }
   },
   rollDice: () => {
-    const { ludo, gameMode, localPlayerId } = get();
+    const ludo = get().ludo;
+    const gameMode = get().gameMode;
+    const localPlayerId = get().localPlayerId;
     if (ludo.isRolling || ludo.diceRoll !== null) return;
     if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
     set(state => ({ ludo: { ...state.ludo, isRolling: true } }));
@@ -75,7 +78,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       set(state => ({ ludo: { ...state.ludo, isRolling: false, diceRoll: roll, validMoves } }));
       if (validMoves.length === 0) {
         setTimeout(() => {
-          const nextIdx = (COLORS.indexOf(get().ludo.currentPlayer) + 1) % 4;
+          const currentPlayer = get().ludo.currentPlayer;
+          const nextIdx = (COLORS.indexOf(currentPlayer) + 1) % 4;
           set(s => ({ ludo: { ...s.ludo, diceRoll: null, currentPlayer: COLORS[nextIdx], validMoves: [] } }));
           get().checkCPUTurn();
         }, 1200);
@@ -86,7 +90,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     }, 600);
   },
   selectLudoToken: (tokenId) => {
-    const { ludo, selectedTokenId } = get();
+    const ludo = get().ludo;
+    const selectedTokenId = get().selectedTokenId;
     if (selectedTokenId === tokenId) {
       set({ selectedTokenId: null });
       return;
@@ -99,16 +104,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
   executeLudoMove: async (move) => {
-    const { ludo, roomId, gameMode } = get();
-    const { newTokens, extraTurn } = moveToken(ludo.tokens, move, ludo.diceRoll!);
+    const ludo = get().ludo;
+    const roomId = get().roomId;
+    const gameMode = get().gameMode;
+    const result = moveToken(ludo.tokens, move, ludo.diceRoll!);
     set(s => ({
       selectedTokenId: null,
       ludo: {
         ...s.ludo,
-        tokens: newTokens,
+        tokens: result.newTokens,
         diceRoll: null,
         validMoves: [],
-        currentPlayer: extraTurn ? s.ludo.currentPlayer : COLORS[(COLORS.indexOf(s.ludo.currentPlayer) + 1) % 4]
+        currentPlayer: result.extraTurn ? s.ludo.currentPlayer : COLORS[(COLORS.indexOf(s.ludo.currentPlayer) + 1) % 4]
       }
     }));
     get().checkWinner();
@@ -118,7 +125,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().checkCPUTurn();
   },
   playOwarePit: async (index) => {
-    const { oware, gameMode, roomId, localPlayerId } = get();
+    const oware = get().oware;
+    const gameMode = get().gameMode;
+    const roomId = get().roomId;
+    const localPlayerId = get().localPlayerId;
     if (gameMode === 'online' && oware.currentPlayer !== localPlayerId) return;
     const newState = sowSeeds(oware, index);
     set({ oware: newState });
@@ -132,7 +142,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
   checkWinner: () => {
-    const { gameType, ludo, oware } = get();
+    const gameType = get().gameType;
+    const ludo = get().ludo;
+    const oware = get().oware;
     if (gameType === 'ludo') {
       COLORS.forEach(color => {
         if (ludo.tokens.filter(t => t.color === color && t.position === 58).length === 4) set({ winner: color.toUpperCase() });
@@ -143,8 +155,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
   checkCPUTurn: () => {
-    if (get().winner) return;
-    if (get().gameType === 'ludo' && get().gameMode === 'pvc' && get().ludo.currentPlayer !== 'red') {
+    const winner = get().winner;
+    const gameType = get().gameType;
+    const gameMode = get().gameMode;
+    const currentPlayer = get().ludo.currentPlayer;
+    if (winner) return;
+    if (gameType === 'ludo' && gameMode === 'pvc' && currentPlayer !== 'red') {
       setTimeout(() => get().rollDice(), 1000);
     }
   },

@@ -28,7 +28,6 @@ const BASE_COORDS: Record<PlayerColor, [number, number][]> = {
   yellow: [[10, 10], [10, 13], [13, 10], [13, 13]],
   blue: [[10, 1], [10, 4], [13, 1], [13, 4]]
 };
-// Offset coords for home center [7,7] to prevent overlapping
 const HOME_CENTER_OFFSETS: Record<PlayerColor, [number, number]> = {
   red: [6.5, 6.5],
   green: [6.5, 7.5],
@@ -73,16 +72,28 @@ export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number)
   if (roll === null) return [];
   const moves: LudoMove[] = [];
   tokens.filter(t => t.color === color).forEach(t => {
+    // 1. Forward Move Logic
     const fwdPos = getNewPosition(t.position, roll, color, 'forward');
     if (fwdPos !== null) {
       moves.push({ tokenId: t.id, targetPos: fwdPos, direction: 'forward', isKick: false });
     }
+    // 2. Backward Move Logic (Ghanaian Rule: ONLY if it captures)
     if (t.position >= 0 && t.position <= 51) {
       const bwdPos = getNewPosition(t.position, roll, color, 'backward');
-      if (bwdPos !== null) {
-        moves.push({ tokenId: t.id, targetPos: bwdPos, direction: 'backward', isKick: false });
+      if (bwdPos !== null && !SAFE_ZONES.includes(bwdPos)) {
+        const opponentAtTarget = tokens.find(ot => ot.position === bwdPos && ot.color !== color);
+        if (opponentAtTarget) {
+          moves.push({ 
+            tokenId: t.id, 
+            targetPos: bwdPos, 
+            direction: 'backward', 
+            isKick: true, 
+            capturedTokenId: opponentAtTarget.id 
+          });
+        }
       }
     }
+    // 3. Ananse Kick (Capture in home stretch)
     if (t.position >= 52 && t.position < 57) {
       const opponentAhead = tokens.find(ot =>
         ot.color !== color &&
