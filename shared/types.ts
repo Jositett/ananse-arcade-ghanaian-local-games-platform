@@ -16,20 +16,44 @@ export interface LudoMove {
   isKick: boolean;
   capturedTokenId?: number;
 }
-export interface GameSession {
+export interface GameEvent {
   id: string;
-  gameType: GameType;
-  status: 'playing' | 'finished';
-  state: Record<string, any>;
-  playerCount: number;
-  lastActionTimestamp: number;
-  updatedAt: number;
+  type: 'roll' | 'move' | 'kick' | 'capture' | 'home' | 'turn_skip' | 'win' | 'sow';
+  player: string;
+  message: string;
+  timestamp: number;
 }
 export interface LudoState {
-  tokens: any[];
-  currentPlayer: string;
+  tokens: {
+    id: number;
+    color: 'red' | 'green' | 'yellow' | 'blue';
+    position: number;
+  }[];
+  currentPlayer: 'red' | 'green' | 'yellow' | 'blue';
   diceRoll: number | null;
   isRolling: boolean;
   validMoves: LudoMove[];
   consecutiveSixes: number;
+  lastMove?: LudoMove;
+}
+export interface OwareState {
+  pits: number[];
+  captured: [number, number];
+  currentPlayer: 0 | 1;
+  lastPitPlayed?: number;
+}
+export interface GameSession {
+  id: string;
+  gameType: GameType;
+  status: 'playing' | 'finished';
+  state: {
+    ludo: LudoState;
+    oware: OwareState;
+    winner: string | null;
+    battleLog: GameEvent[];
+  };
+  playerCount: number;
+  lastActionTimestamp: number;
+  updatedAt: number;
+  serverTime?: number;
 }

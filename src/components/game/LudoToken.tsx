@@ -19,6 +19,7 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
   const top = (coords[0] / 15) * 100;
   const left = (coords[1] / 15) * 100;
   const cellSize = 100 / 15;
+  const samePosTokens = allTokens.filter(t => t.position === token.position && token.position !== -1);
   const isBlocked = isCellBlocked(allTokens, token.position);
   const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 2;
   const colorMap = {
@@ -39,7 +40,7 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
         left: `${left}%`,
         width: `${cellSize}%`,
         height: `${cellSize}%`,
-        zIndex: isSelected ? 100 : (isValidMove ? 50 : 20 + indexInBase),
+        zIndex: isSelected ? 100 : (isValidMove ? 80 : 20 + indexInBase),
         padding: '2px',
         transform: token.position !== -1 ? `translate(${stackOffset}px, ${stackOffset}px)` : 'none'
       }}
@@ -47,17 +48,18 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
     >
       <motion.button
         onClick={() => isValidMove && selectLudoToken(token.id)}
-        animate={isValidMove ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}}
-        transition={{ repeat: Infinity, duration: 1 }}
+        animate={isValidMove ? { scale: [1, 1.1, 1] } : {}}
+        transition={{ repeat: Infinity, duration: 1.5 }}
         className={cn(
           "w-full h-full rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] pointer-events-auto cursor-pointer flex items-center justify-center transition-all",
           colorMap[token.color],
-          isValidMove ? "ring-4 ring-white ring-offset-2 ring-offset-black scale-110" : "opacity-90",
-          isSelected && "ring-black ring-offset-4"
+          isBlocked && "border-dashed border-4",
+          isValidMove ? "ring-2 ring-white scale-110 z-10" : "opacity-90",
+          isSelected && "ring-black ring-offset-4 ring-2"
         )}
       >
         <div className="w-1/2 h-1/2 rounded-full border-2 border-black/20 bg-white/30 flex items-center justify-center">
-          {isBlocked && <Shield className="w-3 h-3 text-black/40" />}
+          {isBlocked ? <Shield className="w-3 h-3 text-black" /> : null}
         </div>
       </motion.button>
       <AnimatePresence>
@@ -65,10 +67,10 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
           <motion.div
             initial={{ opacity: 0, scale: 0.5, y: isTopEdge ? 10 : -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: isTopEdge ? 10 : -10 }}
+            exit={{ opacity: 0, scale: 0.5 }}
             className={cn(
-              "absolute left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]",
-              isTopEdge ? "top-14" : "-top-20"
+              "absolute left-1/2 -translate-x-1/2 flex gap-2 pointer-events-auto z-[200]",
+              isTopEdge ? "top-12" : "-top-16"
             )}
           >
             {tokenMoves.map((m, i) => (
@@ -76,23 +78,23 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
                 key={i}
                 onClick={(e) => { e.stopPropagation(); executeMove(m); }}
                 className={cn(
-                  "w-14 h-14 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
+                  "w-12 h-12 rounded-xl border-4 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
                   m.direction === 'bounce' ? "bg-purple-500 text-white" :
-                  m.direction === 'backward' ? "bg-yellow-400" :
-                  m.isKick ? "bg-red-500 text-white" : "bg-green-400"
+                  m.direction === 'backward' ? "bg-yellow-300" :
+                  m.isKick ? "bg-gradient-to-br from-red-500 to-orange-500 text-white" : "bg-green-400"
                 )}
               >
                 {m.direction === 'bounce' ? (
-                  <RotateCcw size={20} />
+                  <RotateCcw size={18} />
                 ) : m.direction === 'backward' ? (
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={18} />
                 ) : m.isKick ? (
-                  <Swords size={20} />
+                  <Zap size={18} />
                 ) : (
-                  <ArrowRight size={20} />
+                  <ArrowRight size={18} />
                 )}
-                <span className="text-[8px] font-black uppercase mt-0.5">
-                  {m.direction === 'bounce' ? 'Bounce' : m.direction === 'backward' ? 'Back' : m.isKick ? 'Kick' : 'Move'}
+                <span className="text-[7px] font-black uppercase mt-0.5">
+                  {m.direction === 'bounce' ? 'Bnc' : m.direction === 'backward' ? 'Bck' : m.isKick ? 'Zap' : 'Go'}
                 </span>
               </button>
             ))}
