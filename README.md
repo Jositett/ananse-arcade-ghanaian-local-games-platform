@@ -1,6 +1,6 @@
 # Cloudflare Workers React Template
 
-[![[cloudflarebutton]]](https://developers.cloudflare.com/workers/)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Jositett/ananse-arcade-ghanaian-local-games-platform)]](https://developers.cloudflare.com/workers/)
 
 A production-ready full-stack template for Cloudflare Workers with React frontend, Hono backend, Durable Objects for stateful data, Tailwind CSS, shadcn/ui components, and TanStack Query. Perfect for building scalable, edge-deployed applications.
 
@@ -92,7 +92,7 @@ Deploy to Cloudflare Workers (free, global edge network):
 
 Your app will be live at `https://your-worker.your-subdomain.workers.dev`.
 
-[![[cloudflarebutton]]](https://developers.cloudflare.com/workers/)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Jositett/ananse-arcade-ghanaian-local-games-platform)]](https://developers.cloudflare.com/workers/)
 
 **Assets/SPA**: Handled automatically – API routes (`/api/*`) proxied to Worker, frontend served as SPA.
 
