@@ -3,11 +3,11 @@ import { cn } from '@/lib/utils';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
-import { Dice6, User, ShieldCheck, HelpCircle, Star } from 'lucide-react';
+import { Dice6, User, ShieldCheck, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LudoToken } from '@/components/game/LudoToken';
 import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
-import { SAFE_ZONES } from '@/lib/game-logic/ludo-engine';
+import { SAFE_ZONES, MAIN_PATH_COORDS } from '@/lib/game-logic/ludo-engine';
 const COLORS = ['red', 'green', 'yellow', 'blue'];
 export function LudoPage() {
   const diceRoll = useGameStore(s => s.ludo.diceRoll);
@@ -30,12 +30,10 @@ export function LudoPage() {
   const isMyTurn = gameMode === 'online' ? (COLORS.indexOf(currentPlayer) === localPlayerId) :
                   gameMode === 'pvc' ? currentPlayer === 'red' : true;
   const getCellClass = (r: number, c: number) => {
-    // Starting Cells
     if (r === 6 && c === 1) return 'bg-red-400 border-2 border-black ring-inset ring-2 ring-white/50';
     if (r === 1 && c === 8) return 'bg-green-500 border-2 border-black ring-inset ring-2 ring-white/50';
     if (r === 8 && c === 13) return 'bg-yellow-400 border-2 border-black ring-inset ring-2 ring-white/50';
     if (r === 13 && c === 6) return 'bg-blue-500 border-2 border-black ring-inset ring-2 ring-white/50';
-    // Home Stretches
     if (r === 7 && c > 0 && c < 6) return 'bg-red-300';
     if (c === 7 && r > 0 && r < 6) return 'bg-green-400';
     if (r === 7 && c > 8 && c < 14) return 'bg-yellow-300';
@@ -43,9 +41,10 @@ export function LudoPage() {
     return 'bg-white';
   };
   const isCellSafe = (r: number, c: number) => {
-    // This is a simplified check for visual stars on path safe zones
-    const safePositions = [[6, 1], [6, 2], [5, 6], [1, 6], [0, 7], [8, 13], [13, 8], [8, 5]];
-    return safePositions.some(([sr, sc]) => sr === r && sc === c);
+    return SAFE_ZONES.some(idx => {
+      const coords = MAIN_PATH_COORDS[idx];
+      return coords && coords[0] === r && coords[1] === c;
+    });
   };
   return (
     <GameLayout title="Ludu Arena">
@@ -72,8 +71,8 @@ export function LudoPage() {
               const isSafe = isCellSafe(r, c);
               return (
                 <div key={i} className={cn(
-                  isBase ? 'opacity-40' : '', 
-                  isHome ? 'bg-gradient-to-br from-red-500 via-green-500 to-yellow-500' : getCellClass(r, c), 
+                  isBase ? 'opacity-40' : '',
+                  isHome ? 'bg-gradient-to-br from-red-500 via-green-500 to-yellow-500' : getCellClass(r, c),
                   "border-[0.5px] border-black/10 flex items-center justify-center relative"
                 )}>
                   {isSafe && !isHome && <Star className="w-3 h-3 text-black/20" />}

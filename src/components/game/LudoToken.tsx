@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Token, getGridCoords } from '@/lib/game-logic/ludo-engine';
 import { useGameStore } from '@/store/game-store';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Zap, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap } from 'lucide-react';
 interface LudoTokenProps {
   token: Token;
   indexInBase: number;
@@ -18,6 +18,9 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
   const top = (coords[0] / 15) * 100;
   const left = (coords[1] / 15) * 100;
   const cellSize = 100 / 15;
+  // Stacking offset: if not in base and multiple tokens occupy same square
+  // For simplicity, we use indexInBase to slightly stagger all tokens
+  const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 1.5;
   const colorMap = {
     red: 'bg-red-500',
     green: 'bg-green-500',
@@ -35,8 +38,9 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
         left: `${left}%`,
         width: `${cellSize}%`,
         height: `${cellSize}%`,
-        zIndex: isSelected ? 100 : (isValidMove ? 50 : 20),
-        padding: '2px'
+        zIndex: isSelected ? 100 : (isValidMove ? 50 : 20 + indexInBase),
+        padding: '2px',
+        transform: token.position !== -1 ? `translate(${stackOffset}px, ${stackOffset}px)` : 'none'
       }}
       className="pointer-events-none"
     >

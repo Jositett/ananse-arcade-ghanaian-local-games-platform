@@ -69,15 +69,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     const ludo = get().ludo;
     const gameMode = get().gameMode;
     const localPlayerId = get().localPlayerId;
-    if (ludo.isRolling || ludo.diceRoll !== null) return;
+    const winner = get().winner;
+    if (winner || ludo.isRolling || ludo.diceRoll !== null) return;
     if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
     set(state => ({ ludo: { ...state.ludo, isRolling: true } }));
     setTimeout(async () => {
+      if (!get().gameType) return; // Guard against reset
       const roll = Math.floor(Math.random() * 6) + 1;
       const validMoves = getValidMoves(get().ludo.tokens, get().ludo.currentPlayer, roll);
       set(state => ({ ludo: { ...state.ludo, isRolling: false, diceRoll: roll, validMoves } }));
       if (validMoves.length === 0) {
         setTimeout(() => {
+          if (!get().gameType) return;
           const currentPlayer = get().ludo.currentPlayer;
           const nextIdx = (COLORS.indexOf(currentPlayer) + 1) % 4;
           set(s => ({ ludo: { ...s.ludo, diceRoll: null, currentPlayer: COLORS[nextIdx], validMoves: [] } }));
@@ -92,6 +95,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectLudoToken: (tokenId) => {
     const ludo = get().ludo;
     const selectedTokenId = get().selectedTokenId;
+    const winner = get().winner;
+    if (winner) return;
     if (selectedTokenId === tokenId) {
       set({ selectedTokenId: null });
       return;
@@ -107,6 +112,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const ludo = get().ludo;
     const roomId = get().roomId;
     const gameMode = get().gameMode;
+    const winner = get().winner;
+    if (winner) return;
     const result = moveToken(ludo.tokens, move, ludo.diceRoll!);
     set(s => ({
       selectedTokenId: null,
@@ -129,6 +136,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const gameMode = get().gameMode;
     const roomId = get().roomId;
     const localPlayerId = get().localPlayerId;
+    const winner = get().winner;
+    if (winner) return;
     if (gameMode === 'online' && oware.currentPlayer !== localPlayerId) return;
     const newState = sowSeeds(oware, index);
     set({ oware: newState });
@@ -138,7 +147,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     if (gameMode === 'pvc' && newState.currentPlayer === 1 && !get().winner) {
       const bestMove = await getBestOwareMove(newState);
-      if (bestMove !== null) setTimeout(() => get().playOwarePit(bestMove), 1000);
+      if (bestMove !== null) setTimeout(() => {
+        if (!get().gameType) return;
+        get().playOwarePit(bestMove);
+      }, 1000);
     }
   },
   checkWinner: () => {
@@ -161,7 +173,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const currentPlayer = get().ludo.currentPlayer;
     if (winner) return;
     if (gameType === 'ludo' && gameMode === 'pvc' && currentPlayer !== 'red') {
-      setTimeout(() => get().rollDice(), 1000);
+      setTimeout(() => {
+        if (!get().gameType) return;
+        get().rollDice();
+      }, 1000);
     }
   },
   resetGame: () => set({
