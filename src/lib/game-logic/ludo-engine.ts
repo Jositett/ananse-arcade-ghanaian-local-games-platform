@@ -28,6 +28,13 @@ const BASE_COORDS: Record<PlayerColor, [number, number][]> = {
   yellow: [[10, 10], [10, 13], [13, 10], [13, 13]],
   blue: [[10, 1], [10, 4], [13, 1], [13, 4]]
 };
+// Offset coords for home center [7,7] to prevent overlapping
+const HOME_CENTER_OFFSETS: Record<PlayerColor, [number, number]> = {
+  red: [6.5, 6.5],
+  green: [6.5, 7.5],
+  yellow: [7.5, 7.5],
+  blue: [7.5, 6.5]
+};
 export const PLAYER_CONFIG = {
   red: { startIdx: 0, entryIdx: 50, color: 'red' },
   green: { startIdx: 13, entryIdx: 11, color: 'green' },
@@ -35,11 +42,14 @@ export const PLAYER_CONFIG = {
   blue: { startIdx: 39, entryIdx: 37, color: 'blue' }
 };
 export const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
+export function isSafeZone(pos: number): boolean {
+  return SAFE_ZONES.includes(pos) || pos >= 52;
+}
 export function getNewPosition(pos: number, roll: number, color: PlayerColor, direction: 'forward' | 'backward'): number | null {
   if (pos === -1) {
     return (roll === 6 && direction === 'forward') ? PLAYER_CONFIG[color].startIdx : null;
   }
-  if (pos === 58) return null; // Already home
+  if (pos === 58) return null;
   let current = pos;
   const config = PLAYER_CONFIG[color];
   for (let i = 0; i < roll; i++) {
@@ -53,8 +63,7 @@ export function getNewPosition(pos: number, roll: number, color: PlayerColor, di
         current = (current + 1) % 52;
       }
     } else {
-      // Ghanaian Variant: Backward moves only allowed on main path
-      if (current >= 52) return null; // Cannot move backward once in home stretch
+      if (current >= 52) return null;
       current = (current - 1 + 52) % 52;
     }
   }
@@ -64,34 +73,29 @@ export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number)
   if (roll === null) return [];
   const moves: LudoMove[] = [];
   tokens.filter(t => t.color === color).forEach(t => {
-    // Check Forward
     const fwdPos = getNewPosition(t.position, roll, color, 'forward');
     if (fwdPos !== null) {
       moves.push({ tokenId: t.id, targetPos: fwdPos, direction: 'forward', isKick: false });
     }
-    // Check Backward (Ghanaian Variant: Only if on main path)
     if (t.position >= 0 && t.position <= 51) {
       const bwdPos = getNewPosition(t.position, roll, color, 'backward');
       if (bwdPos !== null) {
         moves.push({ tokenId: t.id, targetPos: bwdPos, direction: 'backward', isKick: false });
       }
     }
-    // Check Ghanaian 'Ananse Kick' (Home Stretch Capture)
-    // Rule: If you are in home stretch, and opponent is ahead with exactly 1 empty cell between you,
-    // and you roll enough to at least reach their cell, you kick them out.
     if (t.position >= 52 && t.position < 57) {
-      const opponentAhead = tokens.find(ot => 
-        ot.color !== color && 
-        ot.position === t.position + 2 && 
+      const opponentAhead = tokens.find(ot =>
+        ot.color !== color &&
+        ot.position === t.position + 2 &&
         ot.position >= 52 && ot.position <= 57
       );
       if (opponentAhead && roll >= 2) {
-        moves.push({ 
-          tokenId: t.id, 
-          targetPos: t.position + 2, 
-          direction: 'forward', 
-          isKick: true, 
-          capturedTokenId: opponentAhead.id 
+        moves.push({
+          tokenId: t.id,
+          targetPos: t.position + 2,
+          direction: 'forward',
+          isKick: true,
+          capturedTokenId: opponentAhead.id
         });
       }
     }
@@ -108,17 +112,14 @@ export function moveToken(tokens: Token[], move: LudoMove, roll: number): {
   let captured = false;
   let extraTurn = roll === 6;
   const newTokens = tokens.map(t => {
-    // Move the active token
     if (t.id === move.tokenId) {
       return { ...t, position: move.targetPos };
     }
-    // Handle Ananse Kick
     if (move.isKick && t.id === move.capturedTokenId) {
       captured = true;
       extraTurn = true;
       return { ...t, position: -1 };
     }
-    // Handle Standard Capture (Landed on same spot)
     const isMainPath = move.targetPos <= 51;
     const isSafe = SAFE_ZONES.includes(move.targetPos);
     if (isMainPath && !isSafe && t.position === move.targetPos && t.color !== targetToken.color) {
@@ -142,5 +143,8 @@ export function getGridCoords(token: Token, tokenIdxInBase: number): [number, nu
     const stretchIdx = token.position - 52;
     return HOME_STRETCH_COORDS[token.color][stretchIdx] || [7, 7];
   }
-  return [7, 7]; // Home center
+  if (token.position === 58) {
+    return HOME_CENTER_OFFSETS[token.color];
+  }
+  return [7, 7];
 }

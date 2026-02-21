@@ -3,7 +3,7 @@ export interface DemoItem {
   name: string;
   value: number;
 }
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
@@ -20,7 +20,7 @@ export interface GameSession {
   id: string;
   gameType: GameType;
   status: 'playing' | 'finished';
-  state: any; // Using any to avoid deep recursive type instantiation in Hono
+  state: Record<string, any>;
   playerCount: number;
   lastActionTimestamp: number;
   updatedAt: number;

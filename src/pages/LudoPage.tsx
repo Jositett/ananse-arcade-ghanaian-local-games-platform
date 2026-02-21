@@ -3,10 +3,11 @@ import { cn } from '@/lib/utils';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
-import { Dice6, User, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Dice6, User, ShieldCheck, HelpCircle, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LudoToken } from '@/components/game/LudoToken';
 import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
+import { SAFE_ZONES } from '@/lib/game-logic/ludo-engine';
 const COLORS = ['red', 'green', 'yellow', 'blue'];
 export function LudoPage() {
   const diceRoll = useGameStore(s => s.ludo.diceRoll);
@@ -29,11 +30,22 @@ export function LudoPage() {
   const isMyTurn = gameMode === 'online' ? (COLORS.indexOf(currentPlayer) === localPlayerId) :
                   gameMode === 'pvc' ? currentPlayer === 'red' : true;
   const getCellClass = (r: number, c: number) => {
-    if (r === 7 && c > 0 && c < 6) return 'bg-red-400';
-    if (c === 7 && r > 0 && r < 6) return 'bg-green-500';
-    if (r === 7 && c > 8 && c < 14) return 'bg-yellow-400';
-    if (c === 7 && r > 8 && r < 14) return 'bg-blue-500';
+    // Starting Cells
+    if (r === 6 && c === 1) return 'bg-red-400 border-2 border-black ring-inset ring-2 ring-white/50';
+    if (r === 1 && c === 8) return 'bg-green-500 border-2 border-black ring-inset ring-2 ring-white/50';
+    if (r === 8 && c === 13) return 'bg-yellow-400 border-2 border-black ring-inset ring-2 ring-white/50';
+    if (r === 13 && c === 6) return 'bg-blue-500 border-2 border-black ring-inset ring-2 ring-white/50';
+    // Home Stretches
+    if (r === 7 && c > 0 && c < 6) return 'bg-red-300';
+    if (c === 7 && r > 0 && r < 6) return 'bg-green-400';
+    if (r === 7 && c > 8 && c < 14) return 'bg-yellow-300';
+    if (c === 7 && r > 8 && r < 14) return 'bg-blue-400';
     return 'bg-white';
+  };
+  const isCellSafe = (r: number, c: number) => {
+    // This is a simplified check for visual stars on path safe zones
+    const safePositions = [[6, 1], [6, 2], [5, 6], [1, 6], [0, 7], [8, 13], [13, 8], [8, 5]];
+    return safePositions.some(([sr, sc]) => sr === r && sc === c);
   };
   return (
     <GameLayout title="Ludu Arena">
@@ -51,14 +63,21 @@ export function LudoPage() {
           {roomId && <RoomInfo roomId={roomId} />}
         </div>
         <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-12 items-center lg:items-start justify-center">
-          <div className="relative aspect-square w-full max-w-[600px] bg-black p-1.5 rounded-2xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
+          <div className="relative aspect-square w-full max-w-[600px] bg-black p-2 rounded-2xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
             {Array.from({ length: 15 * 15 }).map((_, i) => {
               const r = Math.floor(i / 15);
               const c = i % 15;
               const isBase = (r < 6 && c < 6) || (r < 6 && c > 8) || (r > 8 && c < 6) || (r > 8 && c > 8);
               const isHome = r >= 6 && r <= 8 && c >= 6 && c <= 8;
+              const isSafe = isCellSafe(r, c);
               return (
-                <div key={i} className={cn(isBase ? 'opacity-30' : '', isHome ? 'bg-black' : getCellClass(r, c), "border-[0.5px] border-black/10")} />
+                <div key={i} className={cn(
+                  isBase ? 'opacity-40' : '', 
+                  isHome ? 'bg-gradient-to-br from-red-500 via-green-500 to-yellow-500' : getCellClass(r, c), 
+                  "border-[0.5px] border-black/10 flex items-center justify-center relative"
+                )}>
+                  {isSafe && !isHome && <Star className="w-3 h-3 text-black/20" />}
+                </div>
               );
             })}
             <AnimatePresence>
@@ -88,14 +107,6 @@ export function LudoPage() {
                   <p className="text-sm font-bold opacity-80">{isMyTurn ? "Your Turn!" : "Waiting..."}</p>
                 </div>
               </div>
-              {isMyTurn && diceRoll && (
-                <div className="bg-yellow-100 border-2 border-yellow-500 p-3 rounded-xl mb-4 flex items-start gap-2">
-                  <HelpCircle className="w-5 h-5 mt-0.5 text-yellow-600" />
-                  <p className="text-xs font-bold text-yellow-800">
-                    Ghanaian Rules: Click a token to move. Some can move backwards to capture!
-                  </p>
-                </div>
-              )}
               <div className="flex flex-col items-center gap-6 p-8 bg-[#FFFDF5] rounded-2xl border-4 border-black">
                 <motion.div
                   animate={isRolling ? { rotate: [0, 90, 180, 270, 360], scale: [1, 1.2, 1] } : {}}

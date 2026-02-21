@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
 import { cn } from '@/lib/utils';
 export function OwarePage() {
@@ -14,19 +14,19 @@ export function OwarePage() {
   const roomId = useGameStore(s => s.roomId);
   const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
-  const [highlightedPit, setHighlightedPit] = useState<number | null>(null);
+  const winner = useGameStore(s => s.winner);
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
       const interval = setInterval(syncWithServer, 2000);
       return () => clearInterval(interval);
     }
   }, [gameMode, roomId, syncWithServer]);
-  const isMyTurn = gameMode === 'online' ? currentPlayer === localPlayerId : 
+  const isMyTurn = gameMode === 'online' ? currentPlayer === localPlayerId :
                   gameMode === 'pvc' ? currentPlayer === 0 : true;
   const renderPit = (index: number) => {
     const isPlayerPit = index < 6;
     const isLocalSlot = (localPlayerId === 0 && isPlayerPit) || (localPlayerId === 1 && !isPlayerPit);
-    const isClickable = isMyTurn && isLocalSlot && pits[index] > 0;
+    const isClickable = isMyTurn && isLocalSlot && pits[index] > 0 && !winner;
     return (
       <motion.div
         key={index}
@@ -35,10 +35,11 @@ export function OwarePage() {
         onClick={() => isClickable && playPit(index)}
         className={cn(
           "aspect-square rounded-full border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center relative transition-all duration-300",
-          isClickable ? "bg-yellow-100 border-yellow-500 cursor-pointer" : "bg-stone-200 grayscale-[0.5]",
-          highlightedPit === index && "bg-white ring-8 ring-green-400"
+          isClickable ? "bg-amber-100 border-amber-600 cursor-pointer shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]" : "bg-stone-300/50 grayscale-[0.2]",
+          currentPlayer === (index < 6 ? 0 : 1) && "ring-4 ring-black ring-offset-2 ring-offset-transparent"
         )}
       >
+        <div className="absolute inset-0 rounded-full bg-black/5 inner-shadow pointer-events-none" />
         <span className="text-4xl font-black">{pits[index]}</span>
         <div className="absolute -top-3 -right-3">
           <NeoBadge className={cn("bg-white border-2", pits[index] === 0 && "opacity-50")}>
@@ -88,34 +89,34 @@ export function OwarePage() {
             </div>
           </NeoCard>
         </div>
-        <NeoCard className="bg-[#5D2E17] p-8 md:p-16 border-[12px] border-black rounded-[4rem] shadow-[20px_20px_0px_0px_rgba(0,0,0,1)]">
-           <div className="space-y-16">
-             {/* Opponent Row (top) */}
+        <NeoCard className="bg-[#4a2411] p-8 md:p-16 border-[12px] border-black rounded-[4rem] shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
+           {/* Visual Wood Texture Layer */}
+           <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_transparent_0%,_black_100%)]" />
+           <div className="space-y-16 relative z-10">
              <div className="grid grid-cols-6 gap-6 md:gap-10">
                 {[11, 10, 9, 8, 7, 6].map(renderPit)}
              </div>
              <div className="relative">
-               <div className="h-8 bg-black/30 rounded-full mx-10 shadow-inner" />
+               <div className="h-6 bg-black/40 rounded-full mx-10 shadow-[inset_0px_4px_4px_rgba(0,0,0,0.5)] border-b-2 border-white/10" />
                <div className="absolute inset-0 flex items-center justify-center">
-                 <div className="bg-black text-white font-black text-xs uppercase px-4 py-1 rounded-full border-2 border-stone-400">Neutral Zone</div>
+                 <div className="bg-black text-white font-black text-[10px] uppercase px-6 py-1.5 rounded-full border-2 border-stone-600 tracking-widest shadow-lg">Traditional Board</div>
                </div>
              </div>
-             {/* Player Row (bottom) */}
              <div className="grid grid-cols-6 gap-6 md:gap-10">
                 {[0, 1, 2, 3, 4, 5].map(renderPit)}
              </div>
            </div>
         </NeoCard>
         <div className="flex justify-center">
-          <motion.div 
-            animate={isMyTurn ? { scale: [1, 1.05, 1] } : {}}
+          <motion.div
+            animate={isMyTurn && !winner ? { scale: [1, 1.05, 1] } : {}}
             transition={{ repeat: Infinity, duration: 2 }}
             className={cn(
-              "px-16 py-8 border-4 border-black rounded-[2rem] shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] font-black text-3xl uppercase tracking-widest",
+              "px-12 md:px-24 py-6 md:py-10 border-4 border-black rounded-[2.5rem] shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] font-black text-2xl md:text-4xl uppercase tracking-widest text-center",
               currentPlayer === 0 ? 'bg-blue-400' : 'bg-red-400'
             )}
           >
-            {isMyTurn ? "YOUR TURN!" : (gameMode === 'pvc' && currentPlayer === 1 ? "CPU THINKING..." : "WAITING...")}
+            {winner ? "GAME OVER" : isMyTurn ? "YOUR TURN!" : (gameMode === 'pvc' && currentPlayer === 1 ? "CPU THINKING..." : "WAITING...")}
           </motion.div>
         </div>
       </div>

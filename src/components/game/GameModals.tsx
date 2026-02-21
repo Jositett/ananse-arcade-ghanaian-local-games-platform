@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoButton } from '@/components/ui/neo-primitives';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Trophy, PartyPopper, Users, Monitor, Globe, ChevronRight, Copy, Check, BookOpen } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, PartyPopper, Users, Monitor, Globe, ChevronRight, Copy, Check } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 export function WinnerModal() {
@@ -16,7 +16,7 @@ export function WinnerModal() {
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="p-8 bg-white border-8 border-black rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center text-center gap-6"
+          className="p-8 bg-white border-8 border-black rounded-[2rem] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center text-center gap-6 relative"
         >
           <div className="bg-yellow-400 p-6 rounded-full border-4 border-black animate-bounce">
             <Trophy className="w-16 h-16" />
@@ -56,11 +56,16 @@ export function GameModeSelector({ gameType, onClose }: { gameType: 'ludo' | 'ow
   const handleCreateOnline = async () => {
     setIsJoining(true);
     try {
-      setGame(gameType, 'online');
-      const state = useGameStore.getState();
+      const fullState = useGameStore.getState();
+      const payloadState = {
+        ludo: fullState.ludo,
+        oware: fullState.oware,
+        winner: fullState.winner
+      };
       const res = await fetch('/api/games/create', {
         method: 'POST',
-        body: JSON.stringify({ gameType, state })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameType, state: payloadState })
       });
       const json = await res.json();
       if (json.success) {
@@ -107,8 +112,8 @@ export function GameModeSelector({ gameType, onClose }: { gameType: 'ludo' | 'ow
             </div>
           ) : (
             <div className="space-y-4">
-              <NeoButton 
-                className="w-full bg-yellow-400" 
+              <NeoButton
+                className="w-full bg-yellow-400"
                 onClick={handleCreateOnline}
                 disabled={isJoining}
               >
@@ -159,7 +164,7 @@ export function RoomInfo({ roomId }: { roomId: string }) {
     <div className="flex items-center gap-2 bg-white border-4 border-black rounded-xl px-4 py-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
       <span className="font-black text-sm uppercase opacity-60">Room:</span>
       <span className="font-black text-lg">{roomId}</span>
-      <button 
+      <button
         onClick={copyCode}
         className="p-1 hover:bg-stone-100 rounded transition-colors ml-2"
       >
