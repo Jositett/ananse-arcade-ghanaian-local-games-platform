@@ -1,23 +1,38 @@
-import { Token, PlayerColor, getValidMoves } from './ludo-engine';
+import { Token, PlayerColor, SAFE_ZONES } from './ludo-engine';
 import { OwareState } from './oware-engine';
-export async function getBestLudoMove(tokens: Token[], color: PlayerColor, roll: number): Promise<number | null> {
-  await new Promise(r => setTimeout(r, 800)); // Simulate thinking
-  const validIds = getValidMoves(tokens, color, roll);
-  if (validIds.length === 0) return null;
-  // Simple Priority:
-  // 1. Enter home
-  // 2. Capture (not implemented in simple AI here, just random for now)
-  // 3. Move out of base
-  // 4. Random
-  const baseToken = validIds.find(id => tokens.find(t => t.id === id)?.position === -1);
-  if (baseToken && roll === 6) return baseToken;
-  return validIds[Math.floor(Math.random() * validIds.length)];
+import { LudoMove } from '@shared/types';
+export async function getBestLudoMove(
+  tokens: Token[], 
+  color: PlayerColor, 
+  roll: number, 
+  validMoves: LudoMove[]
+): Promise<LudoMove | null> {
+  await new Promise(r => setTimeout(r, 800));
+  if (validMoves.length === 0) return null;
+  // Ghanaian Strategy Priority:
+  // 1. Ananse Kick (Capture in home stretch)
+  const kickMove = validMoves.find(m => m.isKick);
+  if (kickMove) return kickMove;
+  // 2. Capture (Standard)
+  const captureMove = validMoves.find(m => {
+    const targetToken = tokens.find(t => t.position === m.targetPos && t.color !== color && !SAFE_ZONES.includes(m.targetPos));
+    return !!targetToken;
+  });
+  if (captureMove) return captureMove;
+  // 3. Exit Base
+  const exitMove = validMoves.find(m => tokens.find(t => t.id === m.tokenId)?.position === -1);
+  if (exitMove) return exitMove;
+  // 4. Backward Strategy (if it lands on a safe zone)
+  const bwdSafeMove = validMoves.find(m => m.direction === 'backward' && SAFE_ZONES.includes(m.targetPos));
+  if (bwdSafeMove) return bwdSafeMove;
+  // 5. Progress forward
+  const fwdMove = validMoves.find(m => m.direction === 'forward');
+  return fwdMove || validMoves[0];
 }
 export async function getBestOwareMove(state: OwareState): Promise<number | null> {
   await new Promise(r => setTimeout(r, 800));
   const playerPits = state.currentPlayer === 0 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
   const validPits = playerPits.filter(i => state.pits[i] > 0);
   if (validPits.length === 0) return null;
-  // Greedy: pick pit with most seeds or random
   return validPits.sort((a, b) => state.pits[b] - state.pits[a])[0];
 }
