@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoButton } from '@/components/ui/neo-primitives';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Trophy, PartyPopper, Users, Monitor, Globe, ChevronRight, Copy, Check, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +23,7 @@ export function WinnerModal() {
           </div>
           <div>
             <h2 className="text-4xl font-black uppercase mb-2">Game Over!</h2>
+            <DialogDescription className="sr-only">Announcement of the game winner.</DialogDescription>
             <p className="text-2xl font-bold bg-green-400 px-4 py-2 border-4 border-black rounded-xl inline-block">
               {winner} WINS!
             </p>
@@ -96,6 +97,7 @@ export function GameModeSelector({ gameType, onClose }: { gameType: 'ludo' | 'ow
         <NeoCard className="p-8 space-y-6">
           <DialogHeader>
             <DialogTitle className="text-3xl font-black uppercase text-center">Select Mode</DialogTitle>
+            <DialogDescription className="sr-only">Choose your preferred game mode.</DialogDescription>
           </DialogHeader>
           {!showJoin ? (
             <div className="space-y-4">

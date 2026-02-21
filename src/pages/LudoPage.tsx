@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
