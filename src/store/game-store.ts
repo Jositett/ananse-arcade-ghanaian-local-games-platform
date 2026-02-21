@@ -4,6 +4,7 @@ import { PlayerColor, Token, moveToken, getValidMoves } from '@/lib/game-logic/l
 import { getBestLudoMove, getBestOwareMove } from '@/lib/game-logic/ai-engine';
 import { LudoMove, GameEvent } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 interface GameState {
   gameType: 'ludo' | 'oware' | null;
   gameMode: 'pvp' | 'pvc' | 'online';
@@ -76,13 +77,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       const res = await fetch(`/api/games/${roomId}`);
       const json = await res.json();
-      if (json.success) {
-        set({
-          ludo: json.data.state.ludo,
-          oware: json.data.state.oware,
-          winner: json.data.state.winner,
-          battleLog: json.data.state.battleLog || []
-        });
+      if (json.success && json.data.state) {
+        const remoteState = json.data.state;
+        set(s => ({
+          ludo: remoteState.ludo || s.ludo,
+          oware: remoteState.oware || s.oware,
+          winner: remoteState.winner,
+          battleLog: remoteState.battleLog || s.battleLog
+        }));
       }
     } catch (e) { console.error("Sync failed", e); }
   },
@@ -96,6 +98,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const newConsecutive = roll === 6 ? ludo.consecutiveSixes + 1 : 0;
       if (newConsecutive === 3) {
         set(state => ({ ludo: { ...state.ludo, isRolling: false, diceRoll: roll, consecutiveSixes: 0, showTripleSixWarning: true } }));
+        toast.error("TRIPLE SIX! Turn cancelled.");
         get().addLog('turn_skip', ludo.currentPlayer.toUpperCase(), "Triple Six! Turn Lost");
         setTimeout(() => {
           const nextIdx = (COLORS.indexOf(get().ludo.currentPlayer) + 1) % 4;
@@ -170,7 +173,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const finalState = sowSeeds(oware, index);
       const capturedDiff = finalState.captured[oware.currentPlayer] - oware.captured[oware.currentPlayer];
       if (capturedDiff > 0) {
-        get().addLog('capture', `Player ${oware.currentPlayer + 1}`, `Captured ${capturedDiff} seeds in a chain!`);
+        get().addLog('capture', `Player ${oware.currentPlayer + 1}`, `Captured ${capturedDiff} seeds!`);
       }
       set({ oware: { ...finalState, lastPitPlayed: currentPos }, isAnimating: false });
     } else {
@@ -202,15 +205,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     } else if (state.gameType === 'oware') {
       const oware = state.oware;
       const validMoves = getValidOwareMoves(oware);
-      // Endgame condition: No legal moves or 25+ seeds captured
-      if (oware.captured[0] >= 25) { 
-        set({ winner: 'PLAYER 1' }); 
-        get().addLog('win', 'P1', "WON THE GAME!"); 
-      } else if (oware.captured[1] >= 25) { 
-        set({ winner: 'PLAYER 2' }); 
-        get().addLog('win', 'P2', "WON THE GAME!"); 
+      if (oware.captured[0] >= 25) {
+        set({ winner: 'PLAYER 1' });
+        get().addLog('win', 'P1', "WON THE GAME!");
+      } else if (oware.captured[1] >= 25) {
+        set({ winner: 'PLAYER 2' });
+        get().addLog('win', 'P2', "WON THE GAME!");
       } else if (validMoves.length === 0) {
-        // Collect remaining seeds
         const finalCaptured = [...oware.captured];
         const p1Seeds = oware.pits.slice(0, 6).reduce((a, b) => a + b, 0);
         const p2Seeds = oware.pits.slice(6, 12).reduce((a, b) => a + b, 0);
@@ -222,8 +223,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           winner, 
           oware: { ...oware, captured: finalCaptured as [number, number], pits: Array(12).fill(0) } 
         });
-        get().addLog('win', winner === 'DRAW' ? 'SYSTEM' : winner === 'PLAYER 1' ? 'P1' : 'P2', 
-          winner === 'DRAW' ? "IT'S A DRAW!" : "WON BY TOTAL COUNT!");
       }
     }
   },

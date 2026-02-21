@@ -7,21 +7,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const body = await c.req.json() as { gameType: GameType, state: any };
         const id = Math.random().toString(36).substring(2, 8).toUpperCase();
         const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
-        // Ensure state is correctly shaped for the storage
-        const cleanState = {
-            ...body.state,
-            oware: body.state.oware ? {
-                ...body.state.oware,
-                captured: body.state.oware.captured as [number, number]
-            } : undefined
+        const cleanState: GameSession['state'] = {
+            winner: body.state.winner || null,
+            battleLog: body.state.battleLog || [],
+            lastActionTimestamp: Date.now(),
         };
+        if (body.gameType === 'ludo' && body.state.ludo) {
+            cleanState.ludo = body.state.ludo;
+        } else if (body.gameType === 'oware' && body.state.oware) {
+            cleanState.oware = {
+                ...body.state.oware,
+                captured: [body.state.oware.captured[0] || 0, body.state.oware.captured[1] || 0]
+            };
+        }
         const session: GameSession = {
             id,
             gameType: body.gameType,
             status: 'playing',
             state: cleanState,
             playerCount: 1,
-            lastActionTimestamp: Date.now(),
             updatedAt: Date.now()
         };
         const result = await stub.createGameSession(session);
@@ -54,14 +58,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const id = c.req.param('id');
         const body = await c.req.json() as { state: any };
         const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
-        // Final sanity check on types before DO storage
-        const cleanState = {
-            ...body.state,
-            oware: body.state.oware ? {
-                ...body.state.oware,
-                captured: body.state.oware.captured as [number, number]
-            } : undefined
+        const cleanState: GameSession['state'] = {
+            winner: body.state.winner,
+            battleLog: body.state.battleLog,
+            lastActionTimestamp: Date.now(),
         };
+        if (body.state.ludo) cleanState.ludo = body.state.ludo;
+        if (body.state.oware) {
+            cleanState.oware = {
+                ...body.state.oware,
+                captured: [body.state.oware.captured[0] || 0, body.state.oware.captured[1] || 0]
+            };
+        }
         const result = await stub.updateGameSession(id, cleanState);
         return c.json({ success: true, data: result });
     });

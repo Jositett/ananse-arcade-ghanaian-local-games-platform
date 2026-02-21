@@ -47,13 +47,13 @@ export interface GameSession {
   gameType: GameType;
   status: 'playing' | 'finished';
   state: {
-    ludo: LudoState;
-    oware: OwareState;
+    ludo?: LudoState;
+    oware?: OwareState;
     winner: string | null;
     battleLog: GameEvent[];
+    lastActionTimestamp?: number;
   };
   playerCount: number;
-  lastActionTimestamp: number;
   updatedAt: number;
   serverTime?: number;
 }

@@ -64,7 +64,6 @@ export function getNewPosition(pos: number, roll: number, color: PlayerColor, di
         current = 52;
       } else if (current >= 52) {
         if (current === 57) {
-          // Bouncing logic (Overshoot)
           const remainder = roll - i;
           return { pos: 58 - remainder, type: 'bounce' };
         }
@@ -75,7 +74,6 @@ export function getNewPosition(pos: number, roll: number, color: PlayerColor, di
     }
     return { pos: current, type: 'forward' };
   } else {
-    // Backward only on main path
     if (pos >= 52) return null;
     let target = (pos - roll + 52) % 52;
     return { pos: target, type: 'backward' };
@@ -84,7 +82,6 @@ export function getNewPosition(pos: number, roll: number, color: PlayerColor, di
 export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number): LudoMove[] {
   const moves: LudoMove[] = [];
   tokens.filter(t => t.color === color).forEach(t => {
-    // Forward Attempt
     const fwdResult = getNewPosition(t.position, roll, color, 'forward');
     if (fwdResult) {
       if (!isCellBlocked(tokens, fwdResult.pos) || tokens.find(ot => ot.position === fwdResult.pos)?.color === color) {
@@ -96,7 +93,6 @@ export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number)
         });
       }
     }
-    // Backward Attempt (Ghanaian Strategy)
     const bwdResult = getNewPosition(t.position, roll, color, 'backward');
     if (bwdResult && !isSafeZone(bwdResult.pos)) {
       const targetOpponent = tokens.find(ot => ot.position === bwdResult.pos && ot.color !== color);
@@ -139,7 +135,7 @@ export function moveToken(tokens: Token[], move: LudoMove, roll: number): {
     return t;
   });
   if (move.targetPos === 58) extraTurn = true;
-  if (move.direction === 'bounce') extraTurn = false; // Overshoot does not grant extra turn
+  if (move.direction === 'bounce') extraTurn = false;
   return { newTokens, captured, extraTurn };
 }
 export function getGridCoords(token: Token, tokenIdxInBase: number): [number, number] {
