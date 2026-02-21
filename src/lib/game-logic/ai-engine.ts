@@ -10,22 +10,26 @@ export async function getBestLudoMove(
   await new Promise(r => setTimeout(r, 800));
   if (validMoves.length === 0) return null;
   // Ghanaian Strategy Priority:
-  // 1. Ghanaian Backward Capture (Newly refined tactical move)
+  // 1. Home Stretch Strike (Highest Priority)
+  const strikeMove = validMoves.find(m => m.isKick && m.targetPos >= 52);
+  if (strikeMove) return strikeMove;
+  // 2. Ghanaian Backward Capture
   const bwdCapture = validMoves.find(m => m.direction === 'backward' && m.isKick);
   if (bwdCapture) return bwdCapture;
-  // 2. Ananse Kick (Capture in home stretch)
-  const homeKick = validMoves.find(m => m.isKick && m.targetPos >= 52);
-  if (homeKick) return homeKick;
-  // 3. Forward Capture
+  // 3. Forward Capture on main path
   const forwardCapture = validMoves.find(m => {
+    const isMainPath = m.targetPos <= 51;
     const targetToken = tokens.find(t => t.position === m.targetPos && t.color !== color && !SAFE_ZONES.includes(m.targetPos));
-    return !!targetToken;
+    return isMainPath && !!targetToken;
   });
   if (forwardCapture) return forwardCapture;
   // 4. Exit Base
   const exitMove = validMoves.find(m => tokens.find(t => t.id === m.tokenId)?.position === -1);
   if (exitMove) return exitMove;
-  // 5. Standard Progress
+  // 5. Entering Home Stretch
+  const homeStretchEntry = validMoves.find(m => m.targetPos >= 52 && m.targetPos < 58);
+  if (homeStretchEntry) return homeStretchEntry;
+  // 6. Standard Progress
   const fwdMove = validMoves.find(m => m.direction === 'forward');
   return fwdMove || validMoves[0];
 }

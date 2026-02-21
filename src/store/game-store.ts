@@ -74,7 +74,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
     set(state => ({ ludo: { ...state.ludo, isRolling: true } }));
     setTimeout(async () => {
-      if (!get().gameType) return; // Guard against reset
+      if (!get().gameType) return;
       const roll = Math.floor(Math.random() * 6) + 1;
       const validMoves = getValidMoves(get().ludo.tokens, get().ludo.currentPlayer, roll);
       set(state => ({ ludo: { ...state.ludo, isRolling: false, diceRoll: roll, validMoves } }));
@@ -94,10 +94,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   selectLudoToken: (tokenId) => {
     const ludo = get().ludo;
-    const selectedTokenId = get().selectedTokenId;
+    const currentSelectedId = get().selectedTokenId;
     const winner = get().winner;
     if (winner) return;
-    if (selectedTokenId === tokenId) {
+    if (currentSelectedId === tokenId) {
       set({ selectedTokenId: null });
       return;
     }
@@ -114,6 +114,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const gameMode = get().gameMode;
     const winner = get().winner;
     if (winner) return;
+    // Safety check: ensure the move is still valid
+    const isStillValid = ludo.validMoves.some(m => 
+      m.tokenId === move.tokenId && 
+      m.targetPos === move.targetPos && 
+      m.direction === move.direction
+    );
+    if (!isStillValid) return;
     const result = moveToken(ludo.tokens, move, ludo.diceRoll!);
     set(s => ({
       selectedTokenId: null,

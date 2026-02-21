@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Token, getGridCoords } from '@/lib/game-logic/ludo-engine';
 import { useGameStore } from '@/store/game-store';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap, Swords } from 'lucide-react';
 interface LudoTokenProps {
   token: Token;
   indexInBase: number;
@@ -12,14 +12,13 @@ interface LudoTokenProps {
 }
 export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoTokenProps) => {
   const selectLudoToken = useGameStore(s => s.selectLudoToken);
-  const validMoves = useGameStore(s => s.ludo.validMoves);
+  const ludoValidMoves = useGameStore(s => s.ludo.validMoves);
   const executeMove = useGameStore(s => s.executeLudoMove);
   const coords = getGridCoords(token, indexInBase);
   const top = (coords[0] / 15) * 100;
   const left = (coords[1] / 15) * 100;
   const cellSize = 100 / 15;
-  // Stacking offset: if not in base and multiple tokens occupy same square
-  // For simplicity, we use indexInBase to slightly stagger all tokens
+  // Stacking offset
   const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 1.5;
   const colorMap = {
     red: 'bg-red-500',
@@ -27,7 +26,7 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
     yellow: 'bg-yellow-400',
     blue: 'bg-blue-500'
   };
-  const tokenMoves = validMoves.filter(m => m.tokenId === token.id);
+  const tokenMoves = ludoValidMoves.filter(m => m.tokenId === token.id);
   return (
     <motion.div
       layout
@@ -63,30 +62,39 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
             initial={{ opacity: 0, scale: 0.5, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.5, y: 10 }}
-            className="absolute -top-20 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]"
+            className="absolute -top-24 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]"
           >
-            {tokenMoves.map((m, i) => (
-              <button
-                key={i}
-                onClick={(e) => { e.stopPropagation(); executeMove(m); }}
-                className={cn(
-                  "w-14 h-14 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
-                  m.isKick ? "bg-red-500 text-white" :
-                  m.direction === 'forward' ? "bg-green-400" : "bg-yellow-400"
-                )}
-              >
-                {m.isKick ? (
-                  <div className="flex flex-col items-center">
-                    <Zap size={18} fill="currentColor" />
-                    <span className="text-[10px] font-black uppercase">Kick</span>
-                  </div>
-                ) : m.direction === 'forward' ? (
-                  <ArrowRight size={24} />
-                ) : (
-                  <ArrowLeft size={24} />
-                )}
-              </button>
-            ))}
+            {tokenMoves.map((m, i) => {
+              const isStrike = m.isKick && m.targetPos >= 52;
+              return (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); executeMove(m); }}
+                  className={cn(
+                    "w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
+                    isStrike ? "bg-red-500 text-white" :
+                    m.isKick ? "bg-orange-500 text-white" :
+                    m.direction === 'forward' ? "bg-green-400" : "bg-yellow-400"
+                  )}
+                >
+                  {isStrike ? (
+                    <div className="flex flex-col items-center">
+                      <Swords size={20} />
+                      <span className="text-[9px] font-black uppercase mt-0.5">Strike</span>
+                    </div>
+                  ) : m.isKick ? (
+                    <div className="flex flex-col items-center">
+                      <Zap size={20} fill="currentColor" />
+                      <span className="text-[9px] font-black uppercase mt-0.5">Kick</span>
+                    </div>
+                  ) : m.direction === 'forward' ? (
+                    <ArrowRight size={24} />
+                  ) : (
+                    <ArrowLeft size={24} />
+                  )}
+                </button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
