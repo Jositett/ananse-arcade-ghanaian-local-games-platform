@@ -14,5 +14,7 @@ export interface GameSession {
   gameType: GameType;
   status: 'waiting' | 'playing' | 'finished';
   state: any; // Serialized state from Zustand
+  playerCount: number;
+  lastActionTimestamp: number;
   updatedAt: number;
 }

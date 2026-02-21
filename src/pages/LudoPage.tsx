@@ -2,10 +2,11 @@ import React, { useEffect } from 'react';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoButton, NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
-import { Dice6 } from 'lucide-react';
+import { Dice6, User, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LudoToken } from '@/components/game/LudoToken';
-import { WinnerModal } from '@/components/game/GameModals';
+import { WinnerModal, RoomInfo } from '@/components/game/GameModals';
+const COLORS = ['red', 'green', 'yellow', 'blue'];
 export function LudoPage() {
   const diceRoll = useGameStore(s => s.ludo.diceRoll);
   const isRolling = useGameStore(s => s.ludo.isRolling);
@@ -15,6 +16,7 @@ export function LudoPage() {
   const validMoveIds = useGameStore(s => s.ludo.validMoveIds);
   const gameMode = useGameStore(s => s.gameMode);
   const roomId = useGameStore(s => s.roomId);
+  const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
   useEffect(() => {
     if (gameMode === 'online' && roomId) {
@@ -22,6 +24,8 @@ export function LudoPage() {
       return () => clearInterval(interval);
     }
   }, [gameMode, roomId, syncWithServer]);
+  const isMyTurn = gameMode === 'online' ? (COLORS.indexOf(currentPlayer) === localPlayerId) : 
+                  gameMode === 'pvc' ? currentPlayer === 'red' : true;
   const getCellClass = (r: number, c: number) => {
     if (r === 7 && c > 0 && c < 6) return 'bg-red-400';
     if (c === 7 && r > 0 && r < 6) return 'bg-green-500';
@@ -32,17 +36,22 @@ export function LudoPage() {
     return 'bg-white';
   };
   return (
-    <GameLayout title="Ludo Arena">
+    <GameLayout title="Ludu Arena">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex gap-2">
-            <NeoBadge className="bg-red-400">P1 (Red)</NeoBadge>
-            {gameMode === 'online' && <NeoBadge className="bg-yellow-400">Room: {roomId}</NeoBadge>}
+        <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
+          <div className="flex gap-4 items-center">
+            {gameMode === 'online' && (
+              <div className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-xl font-black text-sm uppercase">
+                <ShieldCheck className="w-5 h-5 text-green-400" />
+                You are {COLORS[localPlayerId]}
+              </div>
+            )}
+            <NeoBadge className="bg-white border-2 border-black font-black uppercase">{gameMode}</NeoBadge>
           </div>
-          <NeoBadge className="bg-white border-2 border-black font-black uppercase">{gameMode}</NeoBadge>
+          {roomId && <RoomInfo roomId={roomId} />}
         </div>
-        <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-8 items-start justify-center">
-          <div className="relative aspect-square w-full max-w-[600px] bg-black p-1 rounded-xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
+        <div className="py-8 md:py-10 flex flex-col lg:flex-row gap-12 items-center lg:items-start justify-center">
+          <div className="relative aspect-square w-full max-w-[600px] bg-black p-1.5 rounded-2xl shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] grid grid-cols-15 grid-rows-15 gap-px">
             {Array.from({ length: 15 * 15 }).map((_, i) => {
               const r = Math.floor(i / 15);
               const c = i % 15;
@@ -65,34 +74,49 @@ export function LudoPage() {
                   key={token.id}
                   token={token}
                   indexInBase={idx % 4}
-                  isValidMove={validMoveIds.includes(token.id)}
+                  isValidMove={validMoveIds.includes(token.id) && isMyTurn}
                 />
               ))}
             </AnimatePresence>
           </div>
-          <div className="w-full lg:w-80 space-y-6">
-            <NeoCard className="p-6">
-              <h3 className="text-xl font-black uppercase mb-4">Turn</h3>
-              <div className="flex items-center gap-3 mb-6 p-3 rounded-lg border-2 border-black bg-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-                <div className={`w-8 h-8 rounded-full border-2 border-black ${
-                  currentPlayer === 'red' ? 'bg-red-500' :
-                  currentPlayer === 'green' ? 'bg-green-500' :
-                  currentPlayer === 'blue' ? 'bg-blue-500' : 'bg-yellow-400'
-                }`} />
-                <span className="font-black text-xl uppercase">{currentPlayer}</span>
+          <div className="w-full lg:w-96 space-y-6">
+            <NeoCard className="p-8">
+              <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2">
+                <User className="w-5 h-5" /> Current Player
+              </h3>
+              <div className={cn(
+                "flex items-center gap-4 mb-8 p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-colors",
+                currentPlayer === 'red' ? 'bg-red-400' :
+                currentPlayer === 'green' ? 'bg-green-500' :
+                currentPlayer === 'blue' ? 'bg-blue-500' : 'bg-yellow-400'
+              )}>
+                <div className="w-12 h-12 rounded-full border-4 border-black bg-white flex items-center justify-center">
+                  <span className="text-2xl font-black">!</span>
+                </div>
+                <div className="flex-1">
+                  <span className="font-black text-2xl uppercase tracking-wider">{currentPlayer}</span>
+                  <p className="text-sm font-bold opacity-80">{isMyTurn ? "Your Turn!" : "Waiting..."}</p>
+                </div>
               </div>
-              <div className="flex flex-col items-center gap-4 p-6 bg-[#FFFDF5] rounded-xl border-4 border-black">
+              <div className="flex flex-col items-center gap-6 p-8 bg-[#FFFDF5] rounded-2xl border-4 border-black">
                 <motion.div
                   animate={isRolling ? { rotate: [0, 90, 180, 270, 360], scale: [1, 1.2, 1] } : {}}
                   transition={{ repeat: isRolling ? Infinity : 0, duration: 0.2 }}
-                  className="bg-white w-20 h-20 flex items-center justify-center border-4 border-black rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
+                  className="bg-white w-24 h-24 flex items-center justify-center border-8 border-black rounded-[2rem] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                 >
-                  {diceRoll ? <span className="text-5xl font-black">{diceRoll}</span> : <Dice6 className="w-12 h-12" />}
+                  {diceRoll ? (
+                    <span className="text-6xl font-black">{diceRoll}</span>
+                  ) : (
+                    <Dice6 className="w-16 h-16 text-stone-300" />
+                  )}
                 </motion.div>
                 <NeoButton
                   onClick={rollDice}
-                  disabled={isRolling || diceRoll !== null || (gameMode === 'pvc' && currentPlayer !== 'red')}
-                  className="w-full bg-yellow-400 hover:bg-yellow-300 py-6 text-2xl"
+                  disabled={isRolling || diceRoll !== null || !isMyTurn}
+                  className={cn(
+                    "w-full py-8 text-3xl bg-yellow-400",
+                    !isMyTurn && "opacity-30 grayscale"
+                  )}
                 >
                   ROLL
                 </NeoButton>

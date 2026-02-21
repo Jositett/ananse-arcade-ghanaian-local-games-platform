@@ -7,6 +7,7 @@ interface GameState {
   gameMode: 'pvp' | 'pvc' | 'online';
   winner: string | null;
   roomId: string | null;
+  localPlayerId: number; // 0 for Red/P1, 1 for Green/P2 etc
   ludo: {
     tokens: Token[];
     currentPlayer: PlayerColor;
@@ -15,7 +16,7 @@ interface GameState {
     validMoveIds: number[];
   };
   oware: OwareState;
-  setGame: (type: 'ludo' | 'oware' | null, mode: 'pvp' | 'pvc' | 'online', roomId?: string) => void;
+  setGame: (type: 'ludo' | 'oware' | null, mode: 'pvp' | 'pvc' | 'online', roomId?: string, playerIdx?: number) => void;
   rollDice: () => void;
   moveLudoToken: (tokenId: number) => void;
   playOwarePit: (index: number) => void;
@@ -34,18 +35,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   gameMode: 'pvp',
   winner: null,
   roomId: null,
+  localPlayerId: 0,
   ludo: {
     tokens: initialLudoTokens(),
     currentPlayer: 'red',
     diceRoll: null,
     isRolling: false,
-    validMoveIds: [],
+    validMoveIds: []
   },
   oware: createInitialOware(),
-  setGame: (gameType, gameMode, roomId) => set({ 
-    gameType, 
-    gameMode, 
+  setGame: (gameType, gameMode, roomId, playerIdx) => set({
+    gameType,
+    gameMode,
     roomId: roomId || null,
+    localPlayerId: playerIdx ?? 0,
     winner: null,
     ludo: { tokens: initialLudoTokens(), currentPlayer: 'red', diceRoll: null, isRolling: false, validMoveIds: [] },
     oware: createInitialOware()
@@ -56,16 +59,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       const res = await fetch(`/api/games/${roomId}`);
       const json = await res.json();
-      if (json.success) {
-        set(json.data.state);
+      if (json.success && json.data.updatedAt > (Date.now() - 10000)) {
+        // Simple heuristic: Only sync if turn has changed or board state changed
+        const serverState = json.data.state;
+        set({ 
+          ludo: serverState.ludo,
+          oware: serverState.oware,
+          winner: serverState.winner
+        });
       }
     } catch (e) {
       console.error("Sync failed", e);
     }
   },
   rollDice: () => {
-    const { ludo, gameMode, roomId } = get();
+    const { ludo, gameMode, roomId, localPlayerId, gameType } = get();
     if (ludo.isRolling || ludo.diceRoll !== null) return;
+    // Turn enforcement
+    if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
+    if (gameMode === 'pvc' && ludo.currentPlayer !== 'red') return;
     set((state) => ({ ludo: { ...state.ludo, isRolling: true } }));
     setTimeout(async () => {
       const roll = Math.floor(Math.random() * 6) + 1;
@@ -80,22 +92,27 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
       }
       if (validMoves.length === 0) {
-        setTimeout(() => {
+        setTimeout(async () => {
           const nextIdx = (COLORS.indexOf(get().ludo.currentPlayer) + 1) % 4;
           set(s => ({
             ludo: { ...s.ludo, diceRoll: null, currentPlayer: COLORS[nextIdx], validMoveIds: [] }
           }));
+          if (gameMode === 'online' && roomId) {
+            await fetch(`/api/games/${roomId}/sync`, {
+              method: 'POST',
+              body: JSON.stringify({ state: get() })
+            });
+          }
           get().checkCPUTurn();
-        }, 1000);
-      } else if (gameMode === 'pvc' && get().ludo.currentPlayer !== 'red') {
-        const bestMove = await getBestLudoMove(get().ludo.tokens, get().ludo.currentPlayer, roll);
-        if (bestMove) get().moveLudoToken(bestMove);
+        }, 1200);
       }
     }, 600);
   },
   moveLudoToken: async (tokenId) => {
-    const { ludo, roomId, gameMode } = get();
+    const { ludo, roomId, gameMode, localPlayerId } = get();
     if (!ludo.diceRoll) return;
+    // Online turn enforcement
+    if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
     const { newTokens, extraTurn } = moveToken(ludo.tokens, tokenId, ludo.diceRoll);
     set(s => ({
       ludo: {
@@ -116,7 +133,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().checkCPUTurn();
   },
   playOwarePit: async (index) => {
-    const { oware, gameMode, roomId } = get();
+    const { oware, gameMode, roomId, localPlayerId } = get();
+    // Turn enforcement
+    if (gameMode === 'online' && oware.currentPlayer !== localPlayerId) return;
     const newState = sowSeeds(oware, index);
     set({ oware: newState });
     get().checkWinner();
@@ -128,7 +147,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     if (gameMode === 'pvc' && newState.currentPlayer === 1 && !get().winner) {
       const bestMove = await getBestOwareMove(newState);
-      if (bestMove !== null) get().playOwarePit(bestMove);
+      if (bestMove !== null) {
+        setTimeout(() => get().playOwarePit(bestMove), 1000);
+      }
     }
   },
   checkWinner: () => {
@@ -140,14 +161,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
     } else {
-      if (oware.captured[0] > 24) set({ winner: 'PLAYER 1' });
-      if (oware.captured[1] > 24) set({ winner: 'PLAYER 2' });
+      if (oware.captured[0] >= 25) set({ winner: 'PLAYER 1' });
+      else if (oware.captured[1] >= 25) set({ winner: 'PLAYER 2' });
     }
   },
   checkCPUTurn: () => {
-    const { gameMode, ludo, gameType } = get();
-    if (gameType === 'ludo' && gameMode === 'pvc' && ludo.currentPlayer !== 'red' && !get().winner) {
-      setTimeout(() => get().rollDice(), 500);
+    const { gameMode, ludo, gameType, winner } = get();
+    if (winner) return;
+    if (gameType === 'ludo' && gameMode === 'pvc' && ludo.currentPlayer !== 'red') {
+      setTimeout(() => get().rollDice(), 1000);
     }
   },
   resetGame: () => set({

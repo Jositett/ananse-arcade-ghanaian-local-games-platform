@@ -16,13 +16,22 @@ export const NeoCard = ({ children, className, ...props }: NeoProps) => {
     </div>
   );
 };
-export const NeoButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
-  ({ children, className, ...props }, ref) => {
+interface NeoButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'default' | 'ghost' | 'outline';
+}
+export const NeoButton = React.forwardRef<HTMLButtonElement, NeoButtonProps>(
+  ({ children, className, variant = 'default', ...props }, ref) => {
+    const variants = {
+      default: "bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none hover:bg-stone-50",
+      ghost: "bg-transparent border-transparent shadow-none hover:bg-black/5 active:bg-black/10",
+      outline: "bg-transparent shadow-none border-4 border-black hover:bg-stone-50 active:bg-stone-100"
+    };
     return (
       <button
         ref={ref}
         className={cn(
-          "px-6 py-3 font-bold text-lg rounded-xl border-4 border-black transition-all active:translate-x-1 active:translate-y-1 active:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+          "px-6 py-3 font-bold text-lg rounded-xl border-4 border-black transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
+          variants[variant],
           className
         )}
         {...props}

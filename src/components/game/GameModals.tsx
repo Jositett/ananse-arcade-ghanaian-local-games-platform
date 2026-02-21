@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoButton } from '@/components/ui/neo-primitives';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, PartyPopper, Users, Monitor, Globe, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Trophy, PartyPopper, Users, Monitor, Globe, ChevronRight, Copy, Check, BookOpen } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 export function WinnerModal() {
   const winner = useGameStore(s => s.winner);
   const resetGame = useGameStore(s => s.resetGame);
@@ -42,34 +43,51 @@ export function GameModeSelector({ gameType, onClose }: { gameType: 'ludo' | 'ow
   const setGame = useGameStore(s => s.setGame);
   const [showJoin, setShowJoin] = useState(false);
   const [roomCode, setRoomCode] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
   const handleMode = (mode: 'pvp' | 'pvc' | 'online') => {
     if (mode === 'online') {
       setShowJoin(true);
       return;
     }
-    setGame(gameType, mode);
+    setGame(gameType, mode, undefined, 0);
     navigate(`/${gameType}`);
   };
   const handleCreateOnline = async () => {
-    setGame(gameType, 'online');
-    const state = useGameStore.getState();
-    const res = await fetch('/api/games/create', {
-      method: 'POST',
-      body: JSON.stringify({ gameType, state })
-    });
-    const json = await res.json();
-    if (json.success) {
-      setGame(gameType, 'online', json.data.id);
-      navigate(`/${gameType}`);
+    setIsJoining(true);
+    try {
+      setGame(gameType, 'online');
+      const state = useGameStore.getState();
+      const res = await fetch('/api/games/create', {
+        method: 'POST',
+        body: JSON.stringify({ gameType, state })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setGame(gameType, 'online', json.data.id, 0);
+        navigate(`/${gameType}`);
+      }
+    } catch (e) {
+      toast.error("Failed to create room");
+    } finally {
+      setIsJoining(false);
     }
   };
   const handleJoinOnline = async () => {
     if (!roomCode) return;
-    const res = await fetch(`/api/games/${roomCode}`);
-    const json = await res.json();
-    if (json.success) {
-      setGame(gameType, 'online', roomCode);
-      navigate(`/${gameType}`);
+    setIsJoining(true);
+    try {
+      const res = await fetch(`/api/games/${roomCode}/join`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        setGame(gameType, 'online', roomCode, json.data.playerCount - 1);
+        navigate(`/${gameType}`);
+      } else {
+        toast.error("Room not found");
+      }
+    } catch (e) {
+      toast.error("Connection error");
+    } finally {
+      setIsJoining(false);
     }
   };
   return (
@@ -87,17 +105,23 @@ export function GameModeSelector({ gameType, onClose }: { gameType: 'ludo' | 'ow
             </div>
           ) : (
             <div className="space-y-4">
-              <NeoButton className="w-full bg-yellow-400" onClick={handleCreateOnline}>Create New Room</NeoButton>
+              <NeoButton 
+                className="w-full bg-yellow-400" 
+                onClick={handleCreateOnline}
+                disabled={isJoining}
+              >
+                {isJoining ? "Creating..." : "Create New Room"}
+              </NeoButton>
               <div className="flex gap-2">
-                <input 
-                  className="flex-1 border-4 border-black rounded-xl px-4 font-bold" 
-                  placeholder="Enter Code" 
+                <input
+                  className="flex-1 border-4 border-black rounded-xl px-4 font-bold h-14"
+                  placeholder="CODE"
                   value={roomCode}
                   onChange={e => setRoomCode(e.target.value.toUpperCase())}
                 />
-                <NeoButton onClick={handleJoinOnline}>Join</NeoButton>
+                <NeoButton onClick={handleJoinOnline} disabled={isJoining}>Join</NeoButton>
               </div>
-              <NeoButton variant="ghost" className="w-full border-none shadow-none" onClick={() => setShowJoin(false)}>Back</NeoButton>
+              <NeoButton variant="ghost" className="w-full" onClick={() => setShowJoin(false)}>Back</NeoButton>
             </div>
           )}
         </NeoCard>
@@ -120,5 +144,25 @@ function ModeButton({ icon, title, desc, onClick, color }: any) {
       </div>
       <ChevronRight className="opacity-50" />
     </button>
+  );
+}
+export function RoomInfo({ roomId }: { roomId: string }) {
+  const [copied, setCopied] = useState(false);
+  const copyCode = () => {
+    navigator.clipboard.writeText(roomId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="flex items-center gap-2 bg-white border-4 border-black rounded-xl px-4 py-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <span className="font-black text-sm uppercase opacity-60">Room:</span>
+      <span className="font-black text-lg">{roomId}</span>
+      <button 
+        onClick={copyCode}
+        className="p-1 hover:bg-stone-100 rounded transition-colors ml-2"
+      >
+        {copied ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
+      </button>
+    </div>
   );
 }

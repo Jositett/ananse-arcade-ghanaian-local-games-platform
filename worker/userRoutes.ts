@@ -13,29 +13,44 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
             gameType: body.gameType,
             status: 'playing',
             state: body.state,
+            playerCount: 1,
+            lastActionTimestamp: Date.now(),
             updatedAt: Date.now()
         };
-        const data = await stub.createGameSession(session);
-        return c.json({ success: true, data } satisfies ApiResponse<GameSession>);
+        const data = await stub.createGameSession(session) as GameSession;
+        return c.json({ success: true, data } as ApiResponse<GameSession>);
     });
     app.get('/api/games/:id', async (c) => {
         const id = c.req.param('id');
         const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
-        const data = await stub.getGameSession(id);
-        if (!data) return c.json({ success: false, error: 'Room not found' }, 404);
-        return c.json({ success: true, data } satisfies ApiResponse<GameSession>);
+        const data = await stub.getGameSession(id) as GameSession | undefined;
+        if (!data) return c.json({ success: false, error: 'Room not found' } as ApiResponse<never>, 404);
+        return c.json({ success: true, data } as ApiResponse<GameSession>);
+    });
+    app.post('/api/games/:id/join', async (c) => {
+        const id = c.req.param('id');
+        const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
+        const session = await stub.getGameSession(id) as GameSession | undefined;
+        if (!session) return c.json({ success: false, error: 'Room not found' } as ApiResponse<never>, 404);
+        const updatedSession: GameSession = {
+            ...session,
+            playerCount: (session.playerCount || 1) + 1,
+            updatedAt: Date.now()
+        };
+        await stub.createGameSession(updatedSession);
+        return c.json({ success: true, data: updatedSession } as ApiResponse<GameSession>);
     });
     app.post('/api/games/:id/sync', async (c) => {
         const id = c.req.param('id');
         const body = await c.req.json() as { state: any };
         const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
-        const data = await stub.updateGameSession(id, body.state);
-        return c.json({ success: true, data } satisfies ApiResponse<GameSession>);
+        const data = await stub.updateGameSession(id, body.state) as GameSession;
+        return c.json({ success: true, data } as ApiResponse<GameSession>);
     });
     // Demo Endpoints
     app.get('/api/demo', async (c) => {
         const stub = c.env.GlobalDurableObject.get(c.env.GlobalDurableObject.idFromName("global"));
-        const data = await stub.getDemoItems();
-        return c.json({ success: true, data } satisfies ApiResponse<DemoItem[]>);
+        const data = await stub.getDemoItems() as DemoItem[];
+        return c.json({ success: true, data } as ApiResponse<DemoItem[]>);
     });
 }
