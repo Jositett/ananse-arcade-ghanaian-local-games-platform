@@ -34,10 +34,10 @@ export function LudoPage() {
     if (r === 1 && c === 8) return 'bg-green-500 border-2 border-black ring-inset ring-2 ring-white/50';
     if (r === 8 && c === 13) return 'bg-yellow-400 border-2 border-black ring-inset ring-2 ring-white/50';
     if (r === 13 && c === 6) return 'bg-blue-500 border-2 border-black ring-inset ring-2 ring-white/50';
-    if (r === 7 && c > 0 && c < 6) return 'bg-red-300';
-    if (c === 7 && r > 0 && r < 6) return 'bg-green-400';
-    if (r === 7 && c > 8 && c < 14) return 'bg-yellow-300';
-    if (c === 7 && r > 8 && r < 14) return 'bg-blue-400';
+    if (r === 7 && c >= 1 && c <= 6) return 'bg-red-300';
+    if (c === 7 && r >= 1 && r <= 6) return 'bg-green-400';
+    if (r === 7 && c >= 8 && c <= 13) return 'bg-yellow-300';
+    if (c === 7 && r >= 8 && r <= 13) return 'bg-blue-400';
     return 'bg-white';
   };
   const isCellSafe = (r: number, c: number) => {

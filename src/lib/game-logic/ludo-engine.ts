@@ -17,10 +17,10 @@ export const MAIN_PATH_COORDS: [number, number][] = [
   [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0], [7, 0], [6, 0]
 ];
 const HOME_STRETCH_COORDS: Record<PlayerColor, [number, number][]> = {
-  red: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
-  green: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
-  yellow: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],
-  blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]]
+  red: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  green: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
+  yellow: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]
 };
 const BASE_COORDS: Record<PlayerColor, [number, number][]> = {
   red: [[1, 1], [1, 4], [4, 1], [4, 4]],
@@ -35,10 +35,10 @@ const HOME_CENTER_OFFSETS: Record<PlayerColor, [number, number]> = {
   blue: [7.5, 6.5]
 };
 export const PLAYER_CONFIG = {
-  red: { startIdx: 0, entryIdx: 50, color: 'red' },
-  green: { startIdx: 13, entryIdx: 11, color: 'green' },
-  yellow: { startIdx: 26, entryIdx: 24, color: 'yellow' },
-  blue: { startIdx: 39, entryIdx: 37, color: 'blue' }
+  red: { startIdx: 0, entryIdx: 50, color: 'red' as PlayerColor },
+  green: { startIdx: 13, entryIdx: 11, color: 'green' as PlayerColor },
+  yellow: { startIdx: 26, entryIdx: 24, color: 'yellow' as PlayerColor },
+  blue: { startIdx: 39, entryIdx: 37, color: 'blue' as PlayerColor }
 };
 export const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 export function isSafeZone(pos: number): boolean {
@@ -72,12 +72,10 @@ export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number)
   if (roll === null) return [];
   const moves: LudoMove[] = [];
   tokens.filter(t => t.color === color).forEach(t => {
-    // 1. STANDARD FORWARD MOVE
     const fwdPos = getNewPosition(t.position, roll, color, 'forward');
     if (fwdPos !== null) {
       moves.push({ tokenId: t.id, targetPos: fwdPos, direction: 'forward', isKick: false });
     }
-    // 2. BACKWARD MOVE (If on main path and not a safe zone)
     if (t.position >= 0 && t.position <= 51) {
       const bwdPos = getNewPosition(t.position, roll, color, 'backward');
       if (bwdPos !== null && !SAFE_ZONES.includes(bwdPos)) {
@@ -93,18 +91,11 @@ export function getValidMoves(tokens: Token[], color: PlayerColor, roll: number)
         }
       }
     }
-    // 3. HOME STRETCH STRIKE (Jumping to capture any opponent ahead within roll range)
     if (t.position >= 52 && t.position < 57) {
-      // Ghanaian "Jump Strike": Check every step up to the dice roll
       for (let step = 1; step <= roll; step++) {
         const targetPos = t.position + step;
-        if (targetPos > 57) break; // Cannot strike into home center or past it
-        // Find if any opponent token exists at this position in the home stretch
-        // In home stretch, tokens are usually safe, but this special strike allows captures
-        const opponentAhead = tokens.find(ot => 
-          ot.color !== color && 
-          ot.position === targetPos
-        );
+        if (targetPos > 57) break;
+        const opponentAhead = tokens.find(ot => ot.color !== color && ot.position === targetPos);
         if (opponentAhead) {
           moves.push({
             tokenId: t.id,
@@ -137,7 +128,6 @@ export function moveToken(tokens: Token[], move: LudoMove, roll: number): {
       extraTurn = true;
       return { ...t, position: -1 };
     }
-    // Standard capture logic for non-explicit kicks (landing on someone)
     const isMainPath = move.targetPos <= 51;
     const isSafe = SAFE_ZONES.includes(move.targetPos);
     if (isMainPath && !isSafe && t.position === move.targetPos && t.color !== targetToken.color) {

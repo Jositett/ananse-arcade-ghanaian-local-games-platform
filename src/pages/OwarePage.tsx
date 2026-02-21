@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
 import { NeoCard, NeoBadge } from '@/components/ui/neo-primitives';
@@ -27,6 +27,7 @@ export function OwarePage() {
     const isPlayerPit = index < 6;
     const isLocalSlot = (localPlayerId === 0 && isPlayerPit) || (localPlayerId === 1 && !isPlayerPit);
     const isClickable = isMyTurn && isLocalSlot && pits[index] > 0 && !winner;
+    const isActiveSide = currentPlayer === (index < 6 ? 0 : 1);
     return (
       <motion.div
         key={index}
@@ -35,14 +36,14 @@ export function OwarePage() {
         onClick={() => isClickable && playPit(index)}
         className={cn(
           "aspect-square rounded-full border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center relative transition-all duration-300",
-          isClickable ? "bg-amber-100 border-amber-600 cursor-pointer shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]" : "bg-stone-300/50 grayscale-[0.2]",
-          currentPlayer === (index < 6 ? 0 : 1) && "ring-4 ring-black ring-offset-2 ring-offset-transparent"
+          isClickable ? "bg-amber-100 border-amber-600 cursor-pointer" : "bg-stone-300/50 grayscale-[0.2]",
+          isActiveSide && "ring-4 ring-black ring-offset-2 ring-offset-white shadow-[0_0_15px_rgba(0,0,0,0.2)]"
         )}
       >
         <div className="absolute inset-0 rounded-full bg-black/5 inner-shadow pointer-events-none" />
-        <span className="text-4xl font-black">{pits[index]}</span>
+        <span className="text-5xl font-black tabular-nums">{pits[index]}</span>
         <div className="absolute -top-3 -right-3">
-          <NeoBadge className={cn("bg-white border-2", pits[index] === 0 && "opacity-50")}>
+          <NeoBadge className={cn("bg-white border-2 text-base px-2", pits[index] === 0 && "opacity-50")}>
             {pits[index]}
           </NeoBadge>
         </div>
@@ -71,7 +72,7 @@ export function OwarePage() {
             <div className="flex justify-between items-end">
               <div>
                 <p className="font-black text-sm uppercase mb-1">Player 1</p>
-                <p className="text-5xl font-black">{captured[0]}</p>
+                <p className="text-6xl font-black tabular-nums">{captured[0]}</p>
               </div>
               <NeoBadge className="bg-white mb-1">Seeds Captured</NeoBadge>
             </div>
@@ -83,14 +84,13 @@ export function OwarePage() {
              <div className="flex justify-between items-end flex-row-reverse">
               <div>
                 <p className="font-black text-sm uppercase mb-1">{gameMode === 'pvc' ? 'CPU' : 'Player 2'}</p>
-                <p className="text-5xl font-black">{captured[1]}</p>
+                <p className="text-6xl font-black tabular-nums">{captured[1]}</p>
               </div>
               <NeoBadge className="bg-white mb-1">Seeds Captured</NeoBadge>
             </div>
           </NeoCard>
         </div>
         <NeoCard className="bg-[#4a2411] p-8 md:p-16 border-[12px] border-black rounded-[4rem] shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
-           {/* Visual Wood Texture Layer */}
            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_center,_transparent_0%,_black_100%)]" />
            <div className="space-y-16 relative z-10">
              <div className="grid grid-cols-6 gap-6 md:gap-10">

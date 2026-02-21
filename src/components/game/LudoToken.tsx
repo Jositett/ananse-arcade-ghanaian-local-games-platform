@@ -18,7 +18,6 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
   const top = (coords[0] / 15) * 100;
   const left = (coords[1] / 15) * 100;
   const cellSize = 100 / 15;
-  // Stacking offset
   const stackOffset = token.position === -1 ? 0 : (indexInBase % 4) * 1.5;
   const colorMap = {
     red: 'bg-red-500',
@@ -27,6 +26,7 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
     blue: 'bg-blue-500'
   };
   const tokenMoves = ludoValidMoves.filter(m => m.tokenId === token.id);
+  const isTopEdge = coords[0] < 4;
   return (
     <motion.div
       layout
@@ -59,10 +59,13 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
       <AnimatePresence>
         {isSelected && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+            initial={{ opacity: 0, scale: 0.5, y: isTopEdge ? -10 : 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: 10 }}
-            className="absolute -top-24 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]"
+            exit={{ opacity: 0, scale: 0.5, y: isTopEdge ? -10 : 10 }}
+            className={cn(
+              "absolute left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto z-[200]",
+              isTopEdge ? "top-20" : "-top-24"
+            )}
           >
             {tokenMoves.map((m, i) => {
               const isStrike = m.isKick && m.targetPos >= 52;
@@ -71,7 +74,7 @@ export const LudoToken = ({ token, indexInBase, isValidMove, isSelected }: LudoT
                   key={i}
                   onClick={(e) => { e.stopPropagation(); executeMove(m); }}
                   className={cn(
-                    "w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none",
+                    "w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transition-transform active:translate-x-1 active:translate-y-1 active:shadow-none hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]",
                     isStrike ? "bg-red-500 text-white" :
                     m.isKick ? "bg-orange-500 text-white" :
                     m.direction === 'forward' ? "bg-green-400" : "bg-yellow-400"

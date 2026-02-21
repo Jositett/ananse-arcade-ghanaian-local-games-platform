@@ -57,8 +57,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   syncWithServer: async () => {
     const roomId = get().roomId;
-    const gameMode = get().gameMode;
-    if (gameMode !== 'online' || !roomId) return;
+    if (get().gameMode !== 'online' || !roomId) return;
     try {
       const res = await fetch(`/api/games/${roomId}`);
       const json = await res.json();
@@ -67,11 +66,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   rollDice: () => {
     const ludo = get().ludo;
-    const gameMode = get().gameMode;
-    const localPlayerId = get().localPlayerId;
     const winner = get().winner;
     if (winner || ludo.isRolling || ludo.diceRoll !== null) return;
-    if (gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== localPlayerId) return;
+    if (get().gameMode === 'online' && COLORS.indexOf(ludo.currentPlayer) !== get().localPlayerId) return;
     set(state => ({ ludo: { ...state.ludo, isRolling: true } }));
     setTimeout(async () => {
       if (!get().gameType) return;
@@ -86,7 +83,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           set(s => ({ ludo: { ...s.ludo, diceRoll: null, currentPlayer: COLORS[nextIdx], validMoves: [] } }));
           get().checkCPUTurn();
         }, 1200);
-      } else if (gameMode === 'pvc' && get().ludo.currentPlayer !== 'red') {
+      } else if (get().gameMode === 'pvc' && get().ludo.currentPlayer !== 'red') {
         const bestMove = await getBestLudoMove(get().ludo.tokens, get().ludo.currentPlayer, roll, validMoves);
         if (bestMove) setTimeout(() => get().executeLudoMove(bestMove), 1000);
       }
@@ -94,10 +91,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   selectLudoToken: (tokenId) => {
     const ludo = get().ludo;
-    const currentSelectedId = get().selectedTokenId;
-    const winner = get().winner;
-    if (winner) return;
-    if (currentSelectedId === tokenId) {
+    if (get().winner) return;
+    if (get().selectedTokenId === tokenId) {
       set({ selectedTokenId: null });
       return;
     }
@@ -111,19 +106,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   executeLudoMove: async (move) => {
     const ludo = get().ludo;
     const roomId = get().roomId;
-    const gameMode = get().gameMode;
-    const winner = get().winner;
-    if (winner) return;
-    // Safety check: ensure the move is still valid
-    const isStillValid = ludo.validMoves.some(m => 
-      m.tokenId === move.tokenId && 
-      m.targetPos === move.targetPos && 
+    if (get().winner) return;
+    set({ selectedTokenId: null });
+    const isStillValid = ludo.validMoves.some(m =>
+      m.tokenId === move.tokenId &&
+      m.targetPos === move.targetPos &&
       m.direction === move.direction
     );
     if (!isStillValid) return;
     const result = moveToken(ludo.tokens, move, ludo.diceRoll!);
     set(s => ({
-      selectedTokenId: null,
       ludo: {
         ...s.ludo,
         tokens: result.newTokens,
@@ -133,26 +125,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     }));
     get().checkWinner();
-    if (gameMode === 'online' && roomId) {
+    if (get().gameMode === 'online' && roomId) {
       await fetch(`/api/games/${roomId}/sync`, { method: 'POST', body: JSON.stringify({ state: get() }) });
     }
     get().checkCPUTurn();
   },
   playOwarePit: async (index) => {
     const oware = get().oware;
-    const gameMode = get().gameMode;
-    const roomId = get().roomId;
-    const localPlayerId = get().localPlayerId;
-    const winner = get().winner;
-    if (winner) return;
-    if (gameMode === 'online' && oware.currentPlayer !== localPlayerId) return;
+    if (get().winner) return;
+    if (get().gameMode === 'online' && oware.currentPlayer !== get().localPlayerId) return;
     const newState = sowSeeds(oware, index);
     set({ oware: newState });
     get().checkWinner();
-    if (gameMode === 'online' && roomId) {
+    const roomId = get().roomId;
+    if (get().gameMode === 'online' && roomId) {
       await fetch(`/api/games/${roomId}/sync`, { method: 'POST', body: JSON.stringify({ state: get() }) });
     }
-    if (gameMode === 'pvc' && newState.currentPlayer === 1 && !get().winner) {
+    if (get().gameMode === 'pvc' && newState.currentPlayer === 1 && !get().winner) {
       const bestMove = await getBestOwareMove(newState);
       if (bestMove !== null) setTimeout(() => {
         if (!get().gameType) return;
@@ -162,24 +151,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   checkWinner: () => {
     const gameType = get().gameType;
-    const ludo = get().ludo;
-    const oware = get().oware;
     if (gameType === 'ludo') {
+      const ludo = get().ludo;
       COLORS.forEach(color => {
         if (ludo.tokens.filter(t => t.color === color && t.position === 58).length === 4) set({ winner: color.toUpperCase() });
       });
-    } else {
+    } else if (gameType === 'oware') {
+      const oware = get().oware;
       if (oware.captured[0] >= 25) set({ winner: 'PLAYER 1' });
       else if (oware.captured[1] >= 25) set({ winner: 'PLAYER 2' });
     }
   },
   checkCPUTurn: () => {
-    const winner = get().winner;
-    const gameType = get().gameType;
-    const gameMode = get().gameMode;
-    const currentPlayer = get().ludo.currentPlayer;
-    if (winner) return;
-    if (gameType === 'ludo' && gameMode === 'pvc' && currentPlayer !== 'red') {
+    if (get().winner) return;
+    if (get().gameType === 'ludo' && get().gameMode === 'pvc' && get().ludo.currentPlayer !== 'red') {
+      set(s => ({ ludo: { ...s.ludo, validMoves: [] } }));
       setTimeout(() => {
         if (!get().gameType) return;
         get().rollDice();
