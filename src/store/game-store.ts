@@ -69,6 +69,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   addLog: (type, player, message) => set(s => ({
     battleLog: [{ id: uuidv4(), type, player, message, timestamp: Date.now() }, ...s.battleLog].slice(0, 20)
   })),
+  selectLudoToken: (tokenId: number) => set({ selectedTokenId: tokenId }),
+
   syncWithServer: async () => {
     const roomId = get().roomId;
     if (get().gameMode !== 'online' || !roomId || get().isAnimating) return;

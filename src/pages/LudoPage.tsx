@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { GameLayout } from '@/components/layout/GameLayout';
 import { useGameStore } from '@/store/game-store';
@@ -24,23 +24,43 @@ export function LudoPage() {
   const localPlayerId = useGameStore(s => s.localPlayerId);
   const syncWithServer = useGameStore(s => s.syncWithServer);
   const selectedTokenId = useGameStore(s => s.selectedTokenId);
-  const getStackIndex = (token: any) => {
-    const pos = token.position;
-    if (pos === -1) {
-      const sameColorBaseTokens = tokens.filter(t => t.color === token.color && t.position === -1);
-      sameColorBaseTokens.sort((a, b) => a.id - b.id);
-      return sameColorBaseTokens.findIndex(t => t.id === token.id);
-    } else {
-      const samePosTokens = tokens.filter(t => t.position === pos);
-      samePosTokens.sort((a, b) => a.color.localeCompare(b.color) || (a.id - b.id));
-      return samePosTokens.findIndex(t => t.id === token.id);
-    }
-  };
+  
+  const tokenStackIndex = useMemo(() => {
+    const baseTokens = new Map<string, any[]>();
+    const pathTokens = new Map<number, any[]>();
+    
+    tokens.forEach(token => {
+      if (token.position === -1) {
+        if (!baseTokens.has(token.color)) baseTokens.set(token.color, []);
+        baseTokens.get(token.color)!.push(token);
+      } else {
+        if (!pathTokens.has(token.position)) pathTokens.set(token.position, []);
+        pathTokens.get(token.position)!.push(token);
+      }
+    });
+    
+    const indices: Record<number, number> = {};
+    
+    baseTokens.forEach(tokensGroup => {
+      tokensGroup.sort((a, b) => a.id - b.id);
+      tokensGroup.forEach((token, idx) => {
+        indices[token.id] = idx;
+      });
+    });
+    
+    pathTokens.forEach(tokensGroup => {
+      tokensGroup.sort((a, b) => a.color.localeCompare(b.color) || (a.id - b.id));
+      tokensGroup.forEach((token, idx) => {
+        indices[token.id] = idx;
+      });
+    });
+    
+    return indices;
+  }, [tokens]);
   useEffect(() => {
-    if (gameMode === 'online' && roomId) {
-      const interval = setInterval(syncWithServer, 2000);
-      return () => clearInterval(interval);
-    }
+    if (!roomId || gameMode !== 'online' || !syncWithServer) return () => {};
+    const interval = setInterval(syncWithServer, 2000);
+    return () => clearInterval(interval);
   }, [gameMode, roomId, syncWithServer]);
   const isMyTurn = gameMode === 'online' ? (COLORS.indexOf(currentPlayer) === localPlayerId) :
                   gameMode === 'pvc' ? currentPlayer === 'red' : true;
@@ -114,7 +134,7 @@ export function LudoPage() {
                 <LudoToken
                   key={token.id}
                   token={token}
-                  indexInBase={getStackIndex(token)}
+                  indexInBase={tokenStackIndex[token.id] ?? 0}
                   isValidMove={validMoves.some(m => m.tokenId === token.id) && isMyTurn}
                   isSelected={selectedTokenId === token.id}
                 />
